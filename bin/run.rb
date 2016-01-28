@@ -7,8 +7,6 @@ NUM_NODES = 10
 @messages = {} # Node ID => [messages to send]
 @threads = []
 
-# generate a keypair for every node (pubkey will be the Node ID)
-# http://stuff-things.net/2009/12/11/generating-rsa-key-pairs-in-ruby/
 node_names = NUM_NODES.times.map do |i|
   name = rand(100000000..999999999).to_s(16)
   puts "#{i} : #{name}"
