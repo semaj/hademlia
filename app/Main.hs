@@ -1,12 +1,19 @@
 module Main where
 
 import qualified Connection as C
+import qualified Node as N
+import qualified Constants
+import qualified Message as M
+
+import qualified Data.HashMap.Strict as HM
 
 import Network.Socket
 import System.Environment
 import System.IO
 import Control.Monad
 import Control.Exception
+import Control.Concurrent.STM
+import Control.Concurrent
 
 main :: IO ()
 main = do
@@ -24,15 +31,34 @@ startServer port = do
   sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
   bindSocket sock (addrAddress serveraddr) >> return sock
 
+-- fork off another thread to prune the sockets tvar
+
+reader :: Socket -> TVar (HM.HashMap String Socket) -> TQueue M.Message -> IO ()
+reader socket socketsBox q = forever $ do
+  message <- recv socket Constants.socketReadSize
+  -- atomically add to sockets
+  let deserialized = M.deserialize message
+  atomically $ writeTQueue q deserialized
+
+writer :: Socket -> TVar (HM.HashMap String Socket) -> TQueue M.Message -> IO ()
+writer socket socketsBox q = forever $ do
+  message <- atomically $ readTQueue q
+  -- sockets <- atomically $ readTVar socketsBox
+  let serialized = M.serialize message
+  void $ send socket serialized
+
 initialize :: String -> Maybe String -> Socket -> IO ()
 initialize myPort maybeBootstrap mySocket = do
-  initSockets <- timeToBootstrap my
+  initSockets <- timeToBootstrap maybeBootstrap
+  sockets <- atomically $ newTVar HM.empty
+  readQ <- atomically $ newTQueue
+  writeQ <- atomically $ newTQueue
+  writing <- forkIO $ writer mySocket sockets writeQ
+  reading <- forkIO $ reader mySocket sockets readQ
+  return ()
 
-iAmTheFirst :: String -> Socket -> IO ()
-iAmTheFirst myPort mySocket = forever $ do
-  s <- recv mySocket 1024
-  putStrLn s
-
-timeToBootstrap :: Socket -> Maybe String -> IO [Socket]
-timeToBootstrap _ Nothing = return []
-timeToBootstrap mySocket (Just bootstrap) = return [C.getSocket bootstrap]
+timeToBootstrap :: Maybe String -> IO [Socket]
+timeToBootstrap Nothing = return []
+timeToBootstrap (Just bootstrap) = do
+  s <- C.getSocket bootstrap
+  return [s]
