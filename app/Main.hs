@@ -34,18 +34,19 @@ startServer port = do
 -- fork off another thread to prune the sockets tvar
 
 reader :: Socket -> TVar (HM.HashMap String Socket) -> TQueue M.Message -> IO ()
-reader socket socketsBox q = forever $ do
-  message <- recv socket Constants.socketReadSize
+reader sock socketsBox q = forever $ do
+  message <- recv sock Constants.socketReadSize
   -- atomically add to sockets
+  putStrLn message
   let deserialized = M.deserialize message
   atomically $ writeTQueue q deserialized
 
 writer :: Socket -> TVar (HM.HashMap String Socket) -> TQueue M.Message -> IO ()
-writer socket socketsBox q = forever $ do
+writer sock socketsBox q = forever $ do
   message <- atomically $ readTQueue q
-  -- sockets <- atomically $ readTVar socketsBox
+  sockets <- atomically $ readTVar socketsBox
   let serialized = M.serialize message
-  void $ send socket serialized
+  void $ mapM (\ s -> send s serialized) sockets
 
 initialize :: String -> Maybe String -> Socket -> IO ()
 initialize myPort maybeBootstrap mySocket = do
@@ -55,10 +56,11 @@ initialize myPort maybeBootstrap mySocket = do
   writeQ <- atomically $ newTQueue
   writing <- forkIO $ writer mySocket sockets writeQ
   reading <- forkIO $ reader mySocket sockets readQ
-  return ()
+  forever (threadDelay (10^8))
 
 timeToBootstrap :: Maybe String -> IO [Socket]
 timeToBootstrap Nothing = return []
 timeToBootstrap (Just bootstrap) = do
   s <- C.getSocket bootstrap
+  send s "X"
   return [s]

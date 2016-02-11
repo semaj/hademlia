@@ -1,10 +1,10 @@
 require 'socket'
 require 'ecdsa'
 
-NUM_NODES = 10
+NUM_NODES = 4
 
 @messages = {} # Node ID => [messages to send]
-@threads = []
+@pids = []
 
 node_names = NUM_NODES.times.map do |i|
   name = rand(1024..65535)
@@ -12,13 +12,14 @@ node_names = NUM_NODES.times.map do |i|
   name
 end
 
-
-node_names.reduce(nil) do |bootstrap, name|
-  @threads << Thread.new do
-    system("stack exec hademlia-exe #{name} #{bootstrap}")
+begin
+  node_names.reduce(nil) do |bootstrap, name|
+    @pids << spawn("stack exec hademlia-exe #{name} #{bootstrap}")
+    sleep 0.5
+    name
   end
-  sleep 1
-  name
+  loop { }
+ensure
+  @pids.map { |p| Process.kill(:SIGINT, p) }
+  puts "-- PIDS KILLED --"
 end
-
-@threads.map(&:join)
