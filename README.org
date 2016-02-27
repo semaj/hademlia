@@ -1,0 +1,65 @@
+* Hademlia
+ A Haskell Kademlia implementation.
+
+** What is Kademlia?
+Lovely you should ask.
+
+Kademlia is a [[https://en.wikipedia.org/wiki/Distributed_hash_table][distributed hash table]] -- why is this cool?
+It allows a bunch of computers to get together and store information across the entire system.
+Then, each can find/retrieve information that exists only on a given computer,
+without ever having talked to it before!
+
+So let's say Computer 1 wants File A. File A exists on Computer 1337. Computer 1
+can make a few jumps across the network (`log(n)` to be exact) to find exactly where File A is - then C1 can talk to C1337 -
+and splendid piracy continues.
+
+*** How does it actually work?
+**** A node `u` keeps track of the following information:
++ Its ID, which let's say is in binary format, like `101110`.
++ A [[https://en.wikipedia.org/wiki/Binary_tree][Binary Tree]] containing information about a subset of other nodes in the network.
+  + The tree has lists as its leaves
+  + These lists are filled with <Node ID, IP Address, UDP Port> tuples.
+**** A node can perform the following operations:
++ `PING`
++ `STORE`
++ `FIND_NODE`
++ `FIND_VALUE`
+Most of these operations involve a *lookup*, which is described further down.
+**** Objects are treated the same as nodes, identity-wise
++ A given object is hashed into the same format as the node IDs. (Let's assume binary format)
++ When performing a `FIND_VALUE`, the goal is to look for nodes *close* (see below) to that value (in terms of their IDs)
+**** Nodes have a notion of distance defined by XOR
++ If we consider Node / Object IDs as binary digits, we can XOR them to find the "distance"
++ This has a number of cool properies
+  + *unidirectionality* : all paths lead to Rome (the node). For a distance d and point x, there is one y such that dist(x,y) = d
+  + *symmetry* : dist(x,y) = dist(y,x)
+*** The Lookup
+The following is pseudo-code for a node `u` looking up the ID `w`.
+#+BEGIN_SRC
+user sets a, a concurrency parameter
+user sets k, a replication parameter
+maintain k-heap, a min-heap of nodes ordered by distance from w
+                 each entry also maintains a queried? flag (which means queried & received response)
+define get-k-closest, which takes a node and target and returns node's k closest nodes to target
+
+define query(to-query):
+  results := to-query.each { |x| get-k-closest(x, `w`) }
+  add results to k-heap
+  terminate if the first `k` of k-heap has been queried
+  distances := map (distance to `w`) on to results
+  if min(distances) < peak(k-heap):
+    query-next := grab `a` unqueried from k-heap
+  else:
+    query-next := grab any node in the first `k` of k-heap that's unqueried
+  query(query-next)
+
+start by calling query on `a` closest nodes to `w`.
+
+#+END_SRC
+In order to get the initial `a` closest nodes:
++ Assume IDs are 160-bits.
++ Assume k-buckets are stored in a list of size 160 (0..159).
++ Assume nodes in list position `i` are between 2\texttwosuperior{i} and 2\texttwosuperior{i+1} "distance" away
++ For a given node `u` and a target `w`, let d = XOR(u, w)
++ The position of the target k-bucket (the <= k closest nodes to w) is floor(log2(d)).
++ TODO: how to find with the binary lookup tree?
