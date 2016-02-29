@@ -45,6 +45,7 @@ define get-k-closest, which takes a node and target and returns node's K closest
 
 define query(to-query):
   results := to-query.each { |x| get-k-closest(x, W) }
+  terminate if any of the results contain our value or have our desired node ID
   add results to k-heap
   terminate if the first K of k-heap has been queried
   distances := map (distance to W) on to results
@@ -58,8 +59,22 @@ start by calling query on A closest nodes to W.
 #+END_SRC
 In order to get the initial *A* closest nodes:
 + Assume IDs are 160-bits.
-+ Assume k-buckets are stored in a list of size 160 (0..159).
-+ Assume nodes in list position `i` are between 2^i and 2^(i+1) "distance" away
-+ For a given node *U* and a target *W*, let d = XOR(u, w)
-+ The position of the target k-bucket (the <= k closest nodes to w) is floor(log_2(d)).
-+ TODO: how to find with the binary lookup tree?
++ Assume the lookup-tree is a binary tree where the branches at each point are labeled *0* and *1*.
++ Walk the digits of *W* while walking the tree until you hit a leaf.
++ Grab the <= k nodes in that bucket.
++ If < k, walk back a digit and find the next leaf bucket (repeat if necessary).
+If the request is for a value, terminate once a node returns the value associated with the key.
+*** Other Implementation Notes
++ When a node receives any message from another node *W*, it updates the k-bucket for *W*.
+  + If *W* is already there, move it to the end of the list.
+  + If it's not there, add it to the end of the list.
+  + If it's not there and the bucket is full, ping the last recently seen node (first) in the k-bucket.
+    + If it responds, move it to the end of the list and discard *W*.
+    + If it does not, evict it and add *W* to the end of the list.
+  + This way, new nodes can't flood routing tables.
++ Once a lookup succeeds, the requesting node stores the <key,value> it was looking for at the closest node that did not return the value.
++ <key,value>s expire in a time exponentially proportionalo to the number of nodes between the storing node and the next closest node to the key.
++ If a node hasn't performed a lookup in a given bucket in an hour, it will pick one at random and perform a lookup.
++ To join the network, node *U* adds *W* into a k-bucket and then performs a node-lookup for itself. Then it refreshes all k-buckets further than closest neighbor.
++ <key,value>s are republished once every hour
+  + TODO: there's more to talk about here
