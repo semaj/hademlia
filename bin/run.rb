@@ -1,5 +1,4 @@
 require 'socket'
-require 'ecdsa'
 
 NUM_NODES = 4
 
