@@ -1,6 +1,8 @@
 module Node where
 import Network.Socket
 
+type ID = String
+
 data Node = Node {
   myPort :: String,
   sockets :: [Socket]

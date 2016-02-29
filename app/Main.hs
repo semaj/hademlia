@@ -1,19 +1,16 @@
 module Main where
-
 import qualified Connection as C
-import qualified Node as N
 import qualified Constants
-import qualified Message as M
-
+import           Control.Concurrent
+import           Control.Concurrent.STM
+import           Control.Exception
+import           Control.Monad
 import qualified Data.HashMap.Strict as HM
-
-import Network.Socket
-import System.Environment
-import System.IO
-import Control.Monad
-import Control.Exception
-import Control.Concurrent.STM
-import Control.Concurrent
+import qualified Message as M
+import           Network.Socket
+import qualified Node as N
+import           System.Environment
+import           System.IO
 
 main :: IO ()
 main = do
@@ -22,14 +19,7 @@ main = do
   args <- getArgs
   let port = head args
       bootstrap = if length args == 1 then Nothing else Just (args!!1)
-  withSocketsDo $ bracket (startServer port) sClose (initialize port bootstrap)
-
-startServer :: String -> IO Socket
-startServer port = do
-  (serveraddr:_) <- getAddrInfo (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
-                                Nothing (Just port)
-  sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
-  bindSocket sock (addrAddress serveraddr) >> return sock
+  withSocketsDo $ bracket (C.startServer port) sClose (initialize port bootstrap)
 
 -- fork off another thread to prune the sockets tvar
 
