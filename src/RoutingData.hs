@@ -1,11 +1,12 @@
 module RoutingData where
-import qualified Data.ByteString as B
 import qualified Data.List as L
+import qualified Data.Text as T
 import           Utils
 
+-- Handy aliases
 type ID = String
-type IPAddress = B.ByteString
-type Port = B.ByteString
+type IPAddress = T.Text
+type Port = T.Text
 type IPInfo = (IPAddress, Port)
 type NodeInfo = (ID, IPInfo)
 type KBucket = [NodeInfo]
@@ -16,7 +17,7 @@ data Tree = Leaf KBucket | Branch { zero :: Tree, one :: Tree }
 kbFull :: KBucket -> Bool
 kbFull = ((<) 5) . length
 
-kbContainsID :: KBucket -- ^ Does this kbucket contain 
+kbContainsID :: KBucket -- ^ Does this kbucket contain ...
              -> ID      -- ^ This ID?
              -> Bool    -- ^ True or False?
 kbContainsID kb nodeID = any (((==) nodeID) . fst) kb
@@ -29,6 +30,7 @@ closestKBucket (Branch _ o) ('1':restID) = closestKBucket o restID
 closestKBucket (Branch z _) ('0':restID) = closestKBucket z restID
 closestKBucket (Branch _ _) [] = error "closest: tree is taller than id is long"
 
+-- | Inserts a node into our routing tree, performing kbucket splits as necessary.
 insert :: Tree     -- ^ Current Tree
        -> ID       -- ^ The current node's ID
        -> NodeInfo -- ^ The node we are inserting
@@ -45,11 +47,18 @@ insert' (Branch z o) u w ('1':restID) = Branch z (insert' o u w restID)
 insert' (Branch z o) u w ('0':restID) = Branch (insert' z u w restID) o
 insert' (Branch _ _) _ _ [] = error "insert: tree is taller than id is long"
 
+-- | Here, we split kbuckets if they're full. Kademlia dictates that you split
+-- kbuckets if they're full and they contain your ID, but we will assume
+-- consumers of this function have determined that the bucket does contain our ID.
+-- If it's not full, we don't have to modify it and can simply return the kbucket as a Leaf.
+-- Start from the given index. Continue to split the kbucket into subtrees
+-- (walking the IDs) until none of the kbuckets are full.
 splitBucket :: KBucket  -- ^ Kbucket we're splitting
-            -> Int      -- ^ index to split the bucket on (if splitting)
+            -> Int      -- ^ The index to start comparing each ID on
             -> Tree     -- ^ Leaf if not split, Branch if split
 splitBucket kb splitIndex
   | kbFull kb = Branch (splitBucket zeros newIndex) (splitBucket ones newIndex)
   | otherwise = Leaf kb
      where (zeros, ones) = L.partition (\(nid, _) -> (nid!!splitIndex) == '0') kb
            newIndex = splitIndex + 1
+

@@ -27,10 +27,14 @@ library
                      , network
                      , stm
                      , unordered-containers
-                     , bytestring
+                     , aeson
+                     , text
+                     , heap
   default-language:    Haskell2010
   default-extensions:  RecordWildCards
                      , OverloadedStrings
+                     , DeriveGeneric
+                     , DeriveAnyClass
 
 executable hademlia-exe
   hs-source-dirs:      app
