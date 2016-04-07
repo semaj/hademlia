@@ -31,14 +31,14 @@ insert :: Tree     -- ^ current tree
        -> ID       -- ^ the current node's ID
        -> NodeInfo -- ^ the node we are inserting
        -> ID       -- ^ the current (being walked) prefix
-       -> Tree     -- ^ new tree
+       -> Tree     -- ^ new ntree
 insert (Leaf kbucket) u w suffix
-    | kbFull kbucket && kbContainsID kbucket u = splitBucket (apnd kbucket w) $ length w - length suffix
+    | kbFull kbucket && kbContainsID kbucket u =
+        splitBucket (apnd kbucket w) $ length w - length suffix
     | kbFull kbucket = Leaf kbucket
     | otherwise = Leaf $ apnd kbucket w
-insert (Branch z o) u w (firstID:restID)
-  | firstID == '1' = Branch z (insert o u w restID)
-  | firstID == '0' = Branch (insert z u w restID) o
+insert (Branch z o) u w ('1':restID) = Branch z (insert o u w restID)
+insert (Branch z o) u w ('0':restID) = Branch (insert z u w restID) o
 insert (Branch _ _) _ _ [] = error "insert: tree is taller than id is long"
 
 splitBucket :: KBucket  -- ^ Kbucket we're splitting
