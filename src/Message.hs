@@ -11,7 +11,7 @@ import RoutingData
 data Message
   = Store
   { src :: ID                -- ^ Who sent it?
-  , key :: Text              -- ^ Under what key are we storing the value?
+  , key :: ID                -- ^ Under what key are we storing the value?
   , value :: Text            -- ^ What value are we storing?
   , dest :: ID }             -- ^ Who is it destined for?
   | FindNode
@@ -25,7 +25,7 @@ data Message
   | FindValue
   { src :: ID                -- ^ Who sent it?
   , dest :: ID               -- ^ Who is it destined for
-  , key :: Text }            -- ^ Under which key is the value we're trying to obtain?
+  , key :: ID }              -- ^ Under which key is the value we're trying to obtain?
   | FindValueR
   { src :: ID                -- ^ Who sent it?
   , dest :: ID               -- ^ Who is it destined for?

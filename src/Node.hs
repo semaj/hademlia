@@ -9,11 +9,11 @@ import           RoutingData
 data Node = Node { port :: T.Text
                  , nodeID :: ID
                  , tree :: Tree
-                 , store :: HM.HashMap T.Text T.Text
+                 , store :: HM.HashMap ID T.Text
                  , qstate :: Maybe QueryState
                  , incoming :: [Message]
                  , outgoing :: [Message]
-                 , userStores :: [(T.Text, T.Text)]
+                 , userStores :: [(ID, T.Text)]
                  , userFinds :: [T.Text]
                  }
 
@@ -31,5 +31,6 @@ instance Ord NodeHeapInfo where
 data QueryResult = Failure T.Text | FoundValue T.Text | FoundNode NodeInfo | NotDone
 
 data QueryState = QueryState { kheap :: H.MinHeap NodeHeapInfo
-                             , result :: QueryResult
+                             , qtarget :: ID
+                             , qresult :: QueryResult
                              }
