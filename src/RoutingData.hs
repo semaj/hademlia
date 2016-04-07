@@ -1,5 +1,6 @@
 module RoutingData where
 import qualified Data.ByteString as B
+import qualified Data.List as L
 import           Utils
 
 type ID = String
@@ -10,13 +11,14 @@ type NodeInfo = (ID, IPInfo)
 type KBucket = [NodeInfo]
   
 data Tree = Leaf KBucket | Branch { zero :: Tree, one :: Tree }
+  deriving (Eq, Show)
 
 kbFull :: KBucket -> Bool
-kbFull = ((<) 20) . length
+kbFull = ((<) 5) . length
 
-kbContainsID :: KBucket -- ^ does this kbucket contain 
-             -> ID      -- ^ this id?
-             -> Bool    -- ^ yes or no
+kbContainsID :: KBucket -- ^ Does this kbucket contain 
+             -> ID      -- ^ This ID?
+             -> Bool    -- ^ True or False?
 kbContainsID kb nodeID = any (((==) nodeID) . fst) kb
 
 closestKBucket :: Tree    -- ^ The tree we're searching through
@@ -27,11 +29,11 @@ closestKBucket (Branch _ o) ('1':restID) = closestKBucket o restID
 closestKBucket (Branch z _) ('0':restID) = closestKBucket z restID
 closestKBucket (Branch _ _) [] = error "closest: tree is taller than id is long"
 
-insert :: Tree     -- ^ current tree
-       -> ID       -- ^ the current node's ID
-       -> NodeInfo -- ^ the node we are inserting
-       -> ID       -- ^ the current (being walked) prefix
-       -> Tree     -- ^ new ntree
+insert :: Tree     -- ^ Current Tree
+       -> ID       -- ^ The current node's ID
+       -> NodeInfo -- ^ The node we are inserting
+       -> String   -- ^ The current (being walked) prefix
+       -> Tree     -- ^ New Tree
 insert (Leaf kbucket) u w suffix
     | kbFull kbucket && kbContainsID kbucket u =
         splitBucket (apnd kbucket w) $ length w - length suffix
@@ -47,5 +49,5 @@ splitBucket :: KBucket  -- ^ Kbucket we're splitting
 splitBucket kb splitIndex
   | kbFull kb = Branch (splitBucket zeros newIndex) (splitBucket ones newIndex)
   | otherwise = Leaf kb
-     where (zeros, ones) = span (\(nid, _) -> (nid!!splitIndex) == '0') kb
+     where (zeros, ones) = L.partition (\(nid, _) -> (nid!!splitIndex) == '0') kb
            newIndex = splitIndex + 1
