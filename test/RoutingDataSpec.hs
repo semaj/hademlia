@@ -2,9 +2,9 @@ module RoutingDataSpec where
 import RoutingData
 import Test.Hspec
 
-nodeA = ("A", "0.0.0.0", "1337")
-nodeB = ("B", "0.0.0.0", "1337")
-nodeC = ("C", "0.0.0.0", "1337")
+nodeA = ("A", ("0.0.0.0", "1337"))
+nodeB = ("B", ("0.0.0.0", "1337"))
+nodeC = ("C", ("0.0.0.0", "1337"))
 treeA = Branch (Branch (Leaf [nodeA])
                        (Leaf [nodeB]))
                (Leaf [nodeC])
