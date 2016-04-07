@@ -26,6 +26,15 @@ treeDEGJKL = Branch (Branch (Leaf [])
                             (Branch (Leaf [nodeD, nodeG, nodeK])
                                     (Leaf [nodeE, nodeJ, nodeL])))
                     (Leaf [])
+nodeM = mkNdI "01101" "M"
+treeDEGJKLM = Branch (Branch (Leaf [])
+                             (Branch (Leaf [nodeD, nodeG, nodeK])
+                                     (Leaf [nodeE, nodeJ, nodeL, nodeM])))
+                     (Leaf [])
+treeDEGJKLlimit = Branch (Branch (Leaf [])
+                                 (Leaf [nodeD, nodeE, nodeG, nodeJ, nodeK, nodeL]))
+                         (Leaf [])
+
 
 spec :: Spec
 spec = do
@@ -45,3 +54,10 @@ spec = do
                                              (Leaf [nodeF, nodeH, nodeI])
     it "returns branch when full (nested)" $ do
       splitBucket degjkl 0 `shouldBe` treeDEGJKL
+  describe "insert" $ do
+    it "simply appends when target kbucket is not full" $ do
+      insert treeDEGJKL "01010" nodeM `shouldBe` treeDEGJKLM
+    it "drops when the target kbucket is full" $ do
+      insert treeDEGJKLlimit "10000" nodeM `shouldBe` treeDEGJKLlimit
+    it "splits target bucket when full and contains our node" $ do
+      insert treeDEGJKLlimit "01010" nodeM `shouldBe` treeDEGJKLM

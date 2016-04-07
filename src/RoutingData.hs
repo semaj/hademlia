@@ -32,16 +32,18 @@ closestKBucket (Branch _ _) [] = error "closest: tree is taller than id is long"
 insert :: Tree     -- ^ Current Tree
        -> ID       -- ^ The current node's ID
        -> NodeInfo -- ^ The node we are inserting
-       -> String   -- ^ The current (being walked) prefix
        -> Tree     -- ^ New Tree
-insert (Leaf kbucket) u w suffix
+insert t nid winfo@(wid, _) = insert' t nid winfo wid
+
+insert' :: Tree -> ID -> NodeInfo -> String -> Tree     
+insert' (Leaf kbucket) u w@(wid, _) suffix
     | kbFull kbucket && kbContainsID kbucket u =
-        splitBucket (apnd kbucket w) $ length w - length suffix
+        splitBucket (apnd kbucket w) $ length wid - length suffix
     | kbFull kbucket = Leaf kbucket
     | otherwise = Leaf $ apnd kbucket w
-insert (Branch z o) u w ('1':restID) = Branch z (insert o u w restID)
-insert (Branch z o) u w ('0':restID) = Branch (insert z u w restID) o
-insert (Branch _ _) _ _ [] = error "insert: tree is taller than id is long"
+insert' (Branch z o) u w ('1':restID) = Branch z (insert' o u w restID)
+insert' (Branch z o) u w ('0':restID) = Branch (insert' z u w restID) o
+insert' (Branch _ _) _ _ [] = error "insert: tree is taller than id is long"
 
 splitBucket :: KBucket  -- ^ Kbucket we're splitting
             -> Int      -- ^ index to split the bucket on (if splitting)
