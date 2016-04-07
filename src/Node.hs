@@ -1,12 +1,12 @@
 module Node where
-import Network.Socket
+import qualified Data.ByteString as B
+import qualified Data.HashMap.Strict as HM
+import           Network.Socket
+import           RoutingData
 
-type ID = String
-
-data Node = Node {
-  myPort :: String,
-  sockets :: [Socket]
-  }
-
-initNode :: String -> [Socket] -> Node
-initNode port sockets = Node port sockets
+data Node = Node { port :: B.ByteString
+                 , id :: ID
+                 , tree :: Tree
+                 , store :: HM.HashMap B.ByteString B.ByteString
+                 , sockets :: [Socket]
+                 }
