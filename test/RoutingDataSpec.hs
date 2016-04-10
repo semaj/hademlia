@@ -45,6 +45,7 @@ spec = do
       closestKBucket treeA "1" `shouldBe` [nodeC]
     it "finds nodeA in treeA" $ do
       closestKBucket treeA "00" `shouldBe` [nodeA]
+
   describe "splitBucket" $ do
     it "returns a leaf when not full" $ do
       splitBucket [nodeA, nodeB, nodeC] 0 `shouldBe` Leaf [nodeA, nodeB, nodeC]
@@ -54,6 +55,7 @@ spec = do
                                              (Leaf [nodeF, nodeH, nodeI])
     it "returns branch when full (nested)" $ do
       splitBucket degjkl 0 `shouldBe` treeDEGJKL
+
   describe "insert" $ do
     it "simply appends when target kbucket is not full" $ do
       insert treeDEGJKL "01010" nodeM `shouldBe` treeDEGJKLM
@@ -61,3 +63,12 @@ spec = do
       insert treeDEGJKLlimit "10000" nodeM `shouldBe` treeDEGJKLlimit
     it "splits target bucket when full and contains our node" $ do
       insert treeDEGJKLlimit "01010" nodeM `shouldBe` treeDEGJKLM
+
+  describe "nodeDistance" $ do
+    it "returns the distance between two nodes by XORing their respective IDs" $ do
+      nodeDistance "1111" "1111" `shouldBe` 0
+      nodeDistance "1011" "1101" `shouldBe` 6
+
+  describe "bitsToDec" $ do
+    it "converts a string of bits to its base 10 Int equivalent" $ do
+      bitsToDec "110" `shouldBe` 6

@@ -2,6 +2,10 @@ module RoutingData where
 import qualified Data.List as L
 import qualified Data.Text as T
 import           Utils
+import           Data.Bits(xor)
+import           Data.Char(intToDigit, digitToInt)
+import           Data.List(foldl')
+import           Data.Function(on)
 
 -- Handy aliases
 type ID = String
@@ -10,7 +14,7 @@ type Port = T.Text
 type IPInfo = (IPAddress, Port)
 type NodeInfo = (ID, IPInfo)
 type KBucket = [NodeInfo]
-  
+
 data Tree = Leaf KBucket | Branch { zero :: Tree, one :: Tree }
   deriving (Eq, Show)
 
@@ -37,7 +41,7 @@ insert :: Tree     -- ^ Current Tree
        -> Tree     -- ^ New Tree
 insert t nid winfo@(wid, _) = insert' t nid winfo wid
 
-insert' :: Tree -> ID -> NodeInfo -> String -> Tree     
+insert' :: Tree -> ID -> NodeInfo -> String -> Tree
 insert' (Leaf kbucket) u w@(wid, _) suffix
     | kbFull kbucket && kbContainsID kbucket u =
         splitBucket (apnd kbucket w) $ length wid - length suffix
@@ -62,3 +66,11 @@ splitBucket kb splitIndex
      where (zeros, ones) = L.partition (\(nid, _) -> (nid!!splitIndex) == '0') kb
            newIndex = splitIndex + 1
 
+nodeDistance :: ID -> ID -> Int
+nodeDistance x y | x == y    = 0
+                 | otherwise = bitsToDec $ toBits $ zipWith charXor x y
+             where charXor = (xor) `on` digitToInt
+                   toBits = map intToDigit
+
+bitsToDec :: ID -> Int
+bitsToDec = foldl' (\acc x -> acc * 2 + digitToInt x) 0
