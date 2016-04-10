@@ -2,10 +2,6 @@ module RoutingData where
 import qualified Data.List as L
 import qualified Data.Text as T
 import           Utils
-import           Data.Bits(xor)
-import           Data.Char(intToDigit, digitToInt)
-import           Data.List(foldl')
-import           Data.Function(on)
 
 -- Handy aliases
 type ID = String
@@ -66,11 +62,16 @@ splitBucket kb splitIndex
      where (zeros, ones) = L.partition (\(nid, _) -> (nid!!splitIndex) == '0') kb
            newIndex = splitIndex + 1
 
-nodeDistance :: ID -> ID -> Int
-nodeDistance x y | x == y    = 0
-                 | otherwise = bitsToDec $ toBits $ zipWith charXor x y
-             where charXor = (xor) `on` digitToInt
-                   toBits = map intToDigit
+charToBit :: Char -> Int
+charToBit '1' = 1
+charToBit '0' = 0
+charToBit _ = error "The character you're trying to turn into a bit isn't a 1 || 0. Something weird happened."
 
-bitsToDec :: ID -> Int
-bitsToDec = foldl' (\acc x -> acc * 2 + digitToInt x) 0
+xor :: Char -> Char -> Int
+xor x y = abs $ charToBit x - charToBit y
+
+nodeDistance :: ID -> ID -> Int
+nodeDistance x y = bitsToDec $ zipWith xor x y
+
+bitsToDec :: [Int] -> Int
+bitsToDec = L.foldl' (\acc x -> acc * 2 + x) 0

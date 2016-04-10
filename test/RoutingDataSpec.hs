@@ -71,4 +71,4 @@ spec = do
 
   describe "bitsToDec" $ do
     it "converts a string of bits to its base 10 Int equivalent" $ do
-      bitsToDec "110" `shouldBe` 6
+      bitsToDec [1,1,0] `shouldBe` 6
