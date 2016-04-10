@@ -10,7 +10,7 @@ type Port = T.Text
 type IPInfo = (IPAddress, Port)
 type NodeInfo = (ID, IPInfo)
 type KBucket = [NodeInfo]
-  
+
 data Tree = Leaf KBucket | Branch { zero :: Tree, one :: Tree }
   deriving (Eq, Show)
 
@@ -37,7 +37,7 @@ insert :: Tree     -- ^ Current Tree
        -> Tree     -- ^ New Tree
 insert t nid winfo@(wid, _) = insert' t nid winfo wid
 
-insert' :: Tree -> ID -> NodeInfo -> String -> Tree     
+insert' :: Tree -> ID -> NodeInfo -> String -> Tree
 insert' (Leaf kbucket) u w@(wid, _) suffix
     | kbFull kbucket && kbContainsID kbucket u =
         splitBucket (apnd kbucket w) $ length wid - length suffix
@@ -62,3 +62,16 @@ splitBucket kb splitIndex
      where (zeros, ones) = L.partition (\(nid, _) -> (nid!!splitIndex) == '0') kb
            newIndex = splitIndex + 1
 
+charToBit :: Char -> Int
+charToBit '1' = 1
+charToBit '0' = 0
+charToBit _ = error "The character you're trying to turn into a bit isn't a 1 || 0. Something weird happened."
+
+xor :: Char -> Char -> Int
+xor x y = abs $ charToBit x - charToBit y
+
+nodeDistance :: ID -> ID -> Int
+nodeDistance x y = bitsToDec $ zipWith xor x y
+
+bitsToDec :: [Int] -> Int
+bitsToDec = L.foldl' (\acc x -> acc * 2 + x) 0
