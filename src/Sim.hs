@@ -1,5 +1,15 @@
 module Sim where
-import System.Random
+import           Message
+import           Node
+import           RoutingData
+
+import qualified Data.HashMap.Lazy as HM
+import           System.Random
+
+data Sim = Sim { nodes :: HM.HashMap IPInfo Node
+               , queue :: [Message]
+               , gen :: StdGen
+               }
 
 numNodes = 5
 
