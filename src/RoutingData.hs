@@ -5,9 +5,9 @@ import           Utils
 
 -- Handy aliases
 type ID = String
-type IPAddress = T.Text
-type Port = T.Text
-type IPInfo = (IPAddress, Port)
+type IP = String
+type Port = String
+type IPInfo = (IP, Port)
 type NodeInfo = (ID, IPInfo)
 type KBucket = [NodeInfo]
 

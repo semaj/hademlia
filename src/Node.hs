@@ -6,7 +6,8 @@ import           Message
 import           Network.Socket
 import           RoutingData
 
-data Node = Node { port :: T.Text
+data Node = Node { port :: Port
+                 , ip :: IP
                  , nodeID :: ID
                  , tree :: Tree
                  , store :: HM.HashMap ID T.Text
