@@ -1,5 +1,5 @@
 module Sim where
+import System.Random
 
-
-start :: IO ()
-start = putStrLn "Yeah, I simulate things"
+start :: StdGen -> IO ()
+start gen = putStrLn "Yeah, I simulate things"

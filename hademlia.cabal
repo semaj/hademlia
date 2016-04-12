@@ -30,6 +30,7 @@ library
                      , aeson
                      , text
                      , heap
+                     , random
   default-language:    Haskell2010
   default-extensions:  RecordWildCards
                      , OverloadedStrings
@@ -42,6 +43,7 @@ executable hademlia-exe
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       hademlia
                      , base
+                     , random
   default-language:    Haskell2010
 
 
