@@ -1,10 +1,13 @@
 module Node where
+import           Message
+import           RoutingData
+
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Heap as H
 import qualified Data.Text as T
-import           Message
+import           Data.Time.Clock
 import           Network.Socket
-import           RoutingData
+
 
 data Node = Node { port :: Port
                  , ip :: IP
@@ -16,6 +19,9 @@ data Node = Node { port :: Port
                  , outgoing :: [Message]
                  , userStores :: [(ID, T.Text)]
                  , userFinds :: [T.Text]
+                 , lastTime :: HM.HashMap ID UTCTime
+                 , lastMess :: HM.HashMap ID Message
+                 , idToInfo :: HM.HashMap ID IPInfo
                  }
 
 data NodeHeapInfo = NHI { distance :: Int
