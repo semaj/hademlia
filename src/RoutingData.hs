@@ -9,7 +9,7 @@ type IP = String
 type Port = String
 type IPInfo = (IP, Port)
 type NodeInfo = (ID, IPInfo)
-type KBucket = [NodeInfo]
+type KBucket = [ID]
 
 data Tree = Leaf KBucket | Branch { zero :: Tree, one :: Tree }
   deriving (Eq, Show)
@@ -20,7 +20,7 @@ kbFull = ((<) 5) . length
 kbContainsID :: KBucket -- ^ Does this kbucket contain ...
              -> ID      -- ^ This ID?
              -> Bool    -- ^ True or False?
-kbContainsID kb nodeID = any (((==) nodeID) . fst) kb
+kbContainsID kb nodeID = any ((==) nodeID) kb
 
 closestKBucket :: Tree    -- ^ The tree we're searching through
                -> ID      -- ^ Look for a kbucket closest to this ID
@@ -33,16 +33,16 @@ closestKBucket (Branch _ _) [] = error "closest: tree is taller than id is long"
 -- | Inserts a node into our routing tree, performing kbucket splits as necessary.
 insert :: Tree     -- ^ Current Tree
        -> ID       -- ^ The current node's ID
-       -> NodeInfo -- ^ The node we are inserting
+       -> ID       -- ^ The node we are inserting
        -> Tree     -- ^ New Tree
-insert t nid winfo@(wid, _) = insert' t nid winfo wid
+insert t nid wid = insert' t nid wid wid
 
-insert' :: Tree -> ID -> NodeInfo -> String -> Tree
-insert' (Leaf kbucket) u w@(wid, _) suffix
+insert' :: Tree -> ID -> ID -> String -> Tree
+insert' (Leaf kbucket) u wid suffix
     | kbFull kbucket && kbContainsID kbucket u =
-        splitBucket (apnd kbucket w) $ length wid - length suffix
+        splitBucket (apnd kbucket wid) $ length wid - length suffix
     | kbFull kbucket = Leaf kbucket
-    | otherwise = Leaf $ apnd kbucket w
+    | otherwise = Leaf $ apnd kbucket wid
 insert' (Branch z o) u w ('1':restID) = Branch z (insert' o u w restID)
 insert' (Branch z o) u w ('0':restID) = Branch (insert' z u w restID) o
 insert' (Branch _ _) _ _ [] = error "insert: tree is taller than id is long"
@@ -59,7 +59,7 @@ splitBucket :: KBucket  -- ^ Kbucket we're splitting
 splitBucket kb splitIndex
   | kbFull kb = Branch (splitBucket zeros newIndex) (splitBucket ones newIndex)
   | otherwise = Leaf kb
-     where (zeros, ones) = L.partition (\(nid, _) -> (nid!!splitIndex) == '0') kb
+     where (zeros, ones) = L.partition (\nid -> (nid!!splitIndex) == '0') kb
            newIndex = splitIndex + 1
 
 charToBit :: Char -> Int

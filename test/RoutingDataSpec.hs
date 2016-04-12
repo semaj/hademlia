@@ -2,31 +2,28 @@ module RoutingDataSpec where
 import RoutingData
 import Test.Hspec
 
-mkNdI id name = (id, (name, name))
-info = ("0.0.0.0", "1337")
-
-nodeA = ("A", info)
-nodeB = ("B", info)
-nodeC = ("C", info)
+nodeA = "A"
+nodeB = "B"
+nodeC = "C"
 treeA = Branch (Branch (Leaf [nodeA])
                        (Leaf [nodeB]))
                (Leaf [nodeC])
-nodeD = mkNdI "01010" "D"
-nodeE = mkNdI "01110" "E"
-nodeF = mkNdI "10000" "F"
-nodeG = mkNdI "01000" "G"
-nodeH = mkNdI "11000" "H"
-nodeI = mkNdI "11100" "I"
+nodeD = "01010"
+nodeE = "01110"
+nodeF = "10000"
+nodeG = "01000"
+nodeH = "11000"
+nodeI = "11100"
 defghi = [nodeD, nodeE, nodeF, nodeG, nodeH, nodeI]
-nodeJ = mkNdI "01100" "J"
-nodeK = mkNdI "01011" "K"
-nodeL = mkNdI "01111" "L"
+nodeJ = "01100"
+nodeK = "01011"
+nodeL = "01111"
 degjkl = [nodeD, nodeE, nodeG, nodeJ, nodeK, nodeL]
 treeDEGJKL = Branch (Branch (Leaf [])
                             (Branch (Leaf [nodeD, nodeG, nodeK])
                                     (Leaf [nodeE, nodeJ, nodeL])))
                     (Leaf [])
-nodeM = mkNdI "01101" "M"
+nodeM = "01101"
 treeDEGJKLM = Branch (Branch (Leaf [])
                              (Branch (Leaf [nodeD, nodeG, nodeK])
                                      (Leaf [nodeE, nodeJ, nodeL, nodeM])))
