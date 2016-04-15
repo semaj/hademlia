@@ -1,12 +1,15 @@
 module RoutingData where
+import qualified Utils as U
+
 import qualified Data.List as L
 import qualified Data.Text as T
-import           Utils
+
 
 -- Handy aliases
 type ID = String
 type IP = String
-type Port = String
+type QueryID = String
+type Port = Int
 type IPInfo = (IP, Port)
 type NodeInfo = (ID, IPInfo)
 type KBucket = [ID]
@@ -40,9 +43,9 @@ insert t nid wid = insert' t nid wid wid
 insert' :: Tree -> ID -> ID -> String -> Tree
 insert' (Leaf kbucket) u wid suffix
     | kbFull kbucket && kbContainsID kbucket u =
-        splitBucket (apnd kbucket wid) $ length wid - length suffix
+        splitBucket (U.apnd kbucket wid) $ length wid - length suffix
     | kbFull kbucket = Leaf kbucket
-    | otherwise = Leaf $ apnd kbucket wid
+    | otherwise = Leaf $ U.apnd kbucket wid
 insert' (Branch z o) u w ('1':restID) = Branch z (insert' o u w restID)
 insert' (Branch z o) u w ('0':restID) = Branch (insert' z u w restID) o
 insert' (Branch _ _) _ _ [] = error "insert: tree is taller than id is long"
@@ -62,16 +65,5 @@ splitBucket kb splitIndex
      where (zeros, ones) = L.partition (\nid -> (nid!!splitIndex) == '0') kb
            newIndex = splitIndex + 1
 
-charToBit :: Char -> Int
-charToBit '1' = 1
-charToBit '0' = 0
-charToBit _ = error "The character you're trying to turn into a bit isn't a 1 || 0. Something weird happened."
-
-xor :: Char -> Char -> Int
-xor x y = abs $ charToBit x - charToBit y
-
 nodeDistance :: ID -> ID -> Int
-nodeDistance x y = bitsToDec $ zipWith xor x y
-
-bitsToDec :: [Int] -> Int
-bitsToDec = L.foldl' (\acc x -> acc * 2 + x) 0
+nodeDistance x y = U.bitsToDec $ zipWith U.xor x y
