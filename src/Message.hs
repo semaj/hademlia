@@ -19,6 +19,7 @@ data Message
   , dest :: ID                         -- ^ Who is it destined for?
   , sent :: UTCTime                    -- ^ When was it sent?
   , mID :: Text                        -- ^ Unique UUID for this message
+  , qID :: Text                        -- ^ Unique UUID for query it belongs to
   }
   | FindNode
   { src :: ID                          -- ^ Who sent it?
@@ -26,6 +27,7 @@ data Message
   , target :: ID                       -- ^ Who are we trying to find?
   , sent :: UTCTime                    -- ^ When was it sent?
   , mID :: Text                        -- ^ Unique UUID for this message
+  , qID :: Text                        -- ^ Unique UUID for query it belongs to
   }
   | FindNodeR
   { src :: ID                          -- ^ Who sent it?
@@ -33,6 +35,7 @@ data Message
   , results :: [NodeInfo]              -- ^ Who is close to the target?
   , sent :: UTCTime                    -- ^ When was it sent?
   , mID :: Text                        -- ^ Unique UUID for this message
+  , qID :: Text                        -- ^ Unique UUID for query it belongs to
   }
   | FindValue
   { src :: ID                          -- ^ Who sent it?
@@ -40,6 +43,7 @@ data Message
   , key :: ID                          -- ^ Under which key is the value we're trying to obtain?
   , sent :: UTCTime                    -- ^ When was it sent?
   , mID :: Text                        -- ^ Unique UUID for this message
+  , qID :: Text                        -- ^ Unique UUID for query it belongs to
   }
   | FindValueR
   { src :: ID                          -- ^ Who sent it?
@@ -47,6 +51,7 @@ data Message
   , value :: Text                      -- ^ What value did we have under that key?
   , sent :: UTCTime                    -- ^ When was it sent?
   , mID :: Text                        -- ^ Unique UUID for this message
+  , qID :: Text                        -- ^ Unique UUID for query it belongs to
   }
   deriving (Show)
 
