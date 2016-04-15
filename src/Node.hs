@@ -14,13 +14,12 @@ data Node = Node { port :: Port
                  , nodeID :: ID
                  , tree :: Tree
                  , store :: HM.HashMap ID T.Text
-                 , qstate :: Maybe QueryState
+                 , qstates :: HM.HashMap QueryID QueryState
                  , incoming :: [Message]
                  , outgoing :: [Message]
                  , userStores :: [(ID, T.Text)]
-                 , userFinds :: [T.Text]
                  , lastTime :: HM.HashMap ID UTCTime
-                 , lastMess :: HM.HashMap ID Message
+                 , lastSent :: HM.HashMap ID Message
                  , idToInfo :: HM.HashMap ID IPInfo
                  }
 
@@ -37,7 +36,10 @@ instance Ord NodeHeapInfo where
 
 data QueryResult = Failure T.Text | FoundValue T.Text | FoundNode NodeInfo | NotDone
 
-data QueryState = QueryState { kheap :: H.MinHeap NodeHeapInfo
+data QueryState = QueryState { heap :: H.MinHeap NodeHeapInfo
+                             , queryID :: QueryID
                              , qtarget :: ID
                              , qresult :: QueryResult
+                             , qincoming :: [Message]
+                             , qoutgoing :: [Message]
                              }
