@@ -1,4 +1,5 @@
 module Sim where
+import qualified Dummy as D
 import           Message
 import           Node
 import           RoutingData
@@ -35,39 +36,38 @@ testNode ours theirs now = Node { port = 0
                                 }
 
 
-randomID :: RandomGen g => g -> (ID, g)
-randomID gen = (zeroPad idBits $ decToBitString rID, g)
-  where (rID, g) = randomR idRange gen
+intToID :: Int ->  ID
+intToID i = zeroPad idBits $ decToBitString i
 
-randLog :: (RandomGen g, Random a, Show a) => (a, a) -> g -> String -> IO (a, g)
-randLog range@(lo, hi) gen logMe = do
-  putStrLn $ "Generating " ++ logMe ++ "between " ++ (show lo) ++ " - " ++ (show hi)
-  return $ randomR range gen
+randLog :: (Random a, Show a) => String -> (a, a) -> IO a
+randLog logMe r@(lo, hi) = do
+  putStrLn $ "Generating " ++ logMe ++ " between " ++ (show lo) ++ " - " ++ (show hi)
+  getStdRandom $ randomR r
 
-randomNode :: RandomGen g => g -> [Node] -> (Node, g)
-randomNode g nodes =
-  case maybeNode of
+getNode :: Int -> [Node] -> Node
+getNode i nodes =
+  case get nodes i of
     Nothing -> error $ "Node list no index " ++ (show i)
-    Just node -> (node, g')
-  where range = (0, length nodes - 1)
-        (i, g') = randomR range g
-        maybeNode = get nodes i
+    Just node -> node
 
-initNodes :: RandomGen g => g -> UTCTime -> (HM.HashMap ID Node, g)
-initNodes gen now = (HM.fromList [(aID, nodeA), (bID, nodeB)], gen'')
-   where (aID, gen') = randomID gen
-         (bID, gen'') = randomID gen'
+initNodes :: Int -> Int -> UTCTime -> HM.HashMap ID Node
+initNodes i1 i2 now = HM.fromList [(aID, nodeA), (bID, nodeB)]
+   where aID = intToID i1
+         bID = intToID i2
          nodeA = testNode aID bID now
          nodeB = testNode bID aID now
 
 execute :: Node -> Node
 execute node = node
 
-start :: RandomGen g => g -> IO ()
+start :: StdGen -> IO ()
 start gen = do
   now <- getCurrentTime
-  let (nodes, gen') = initNodes gen now
-  run gen' nodes [] [] HM.empty
+  setStdGen gen
+  id1 <- randLog "node A ID" idRange
+  id2 <- randLog "node B ID" idRange
+  let nodes = initNodes id1 id2 now
+  run nodes [] [] HM.empty
 
 data Command = Put { key :: ID
                    , value :: T.Text
@@ -79,11 +79,10 @@ data Command = Put { key :: ID
                    , success :: Bool
                    }
 
-run :: RandomGen g => g         -- ^ The random number generator
-       -> HM.HashMap ID Node    -- ^ ID -> Node with that ID
+run :: HM.HashMap ID Node       -- ^ ID -> Node with that ID
        -> [Message]             -- ^ Message queue between nodes
        -> [Command]             -- ^ Commands sent
        -> HM.HashMap ID T.Text  -- ^ Reference hashmap (DHT map should emulate this)
        -> IO ()
-run g nodes messages commands refStore = do
+run nodes messages commands refStore = do
   putStrLn "sup"
