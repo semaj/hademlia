@@ -26,6 +26,7 @@ data Message
   , dest :: ID                         -- ^ Who is it destined for?
   , target :: ID                       -- ^ Who are we trying to find?
   , sent :: UTCTime                    -- ^ When was it sent?
+  , mRound :: Int                      -- ^ Which find-Round does it belong to?
   , mID :: Text                        -- ^ Unique UUID for this message
   , qID :: Text                        -- ^ Unique UUID for query it belongs to
   }
@@ -34,6 +35,7 @@ data Message
   , dest :: ID                         -- ^ Who is it destined for?
   , results :: [NodeInfo]              -- ^ Who is close to the target?
   , sent :: UTCTime                    -- ^ When was it sent?
+  , mRound :: Int                      -- ^ Which find-Round does it belong to?
   , mID :: Text                        -- ^ Unique UUID for this message
   , qID :: Text                        -- ^ Unique UUID for query it belongs to
   }
