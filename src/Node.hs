@@ -37,12 +37,12 @@ instance Eq NodeHeapInfo where
 instance Ord NodeHeapInfo where
   x <= y = (distance x) <= (distance y)
 
-data QueryResult = FoundValue T.Text | FoundNodes [NodeInfo] | NotDone
+data QueryResult = FoundNodes [ID] | NotDone
                  deriving (Show, Eq)
 
-data QueryMessage = QM { qmDest :: ID
-                       , qmRound :: Int
+data QueryMessage = QM { qmRound :: Int
                        , qmTarget :: ID
+                       , qmDest :: ID
                        } deriving (Show)
 
 data QueryMessageResponse = QMR { qmrSrc :: ID
@@ -53,7 +53,7 @@ data QueryMessageResponse = QMR { qmrSrc :: ID
 data QueryState = QueryState { heap :: H.MinHeap NodeHeapInfo
                              , queryID :: QueryID
                              , roundResps :: Int
-                             , round :: Int
+                             , qround :: Int
                              , qtarget :: ID
                              , qresult :: QueryResult
                              , desperate :: Bool
@@ -68,7 +68,7 @@ startFindNode target nodes qid = QueryState { heap = aHeap
                                             , qtarget = target
                                             , qresult = NotDone
                                             , roundResps = 0
-                                            , round = 0
+                                            , qround = 0
                                             , desperate = False
                                               -- include entire tree in seen?
                                             , seen = HS.fromList $ fmap snd aClosest
@@ -79,35 +79,46 @@ startFindNode target nodes qid = QueryState { heap = aHeap
         aHeap = H.fromAscList $ fmap (\(dist, n) -> NHI False n dist) aClosest
 
 kQueried :: H.MinHeap NodeHeapInfo -> Bool
-kQueried heap = all (((==) True) . queried) $ H.take C.k heap
+kQueried heap = all queried $ H.take C.k heap
+
+unqueriedFromK :: H.MinHeap NodeHeapInfo -> [ID]
+unqueriedFromK heap = fmap nID $ filter (not . queried) $ H.take C.k heap
 
 -- the node infos need to be parsed out and handled in the
 -- nodes internal map to keep track of the IP, port
 process :: QueryState -> QueryState
 process QueryState{..} = QueryState{..}
-  where roundResps = length $ filter (((==) round) . qmrRound) incoming
-        newIDs = HS.difference (HS.fromList $ concat $ fmap qmrResults incoming) seen
+  where roundResps = length $ filter (((==) qround) . qmrRound) qincoming
+        newIDs = HS.difference (HS.fromList $ concat $ fmap qmrResults qincoming) seen
         heap = HS.foldl' (\h n -> H.insert (NHI False n $ nodeDistance qtarget n) h)
           heap newIDs
-        incoming = []
+        qincoming = []
 
--- should I increment the round after this? I think so.
--- set desparate to true
-shotgunK q = undefined
+shotgunK :: QueryState -> QueryState
+shotgunK QueryState{..} = QueryState{..}
+  where qround = qround + 1
+        desperate = True
+        qoutgoing = qoutgoing ++ (fmap (QM qround qtarget) $ unqueriedFromK heap)
 
--- return the k closest we know about
-terminate q = undefined
+terminate :: QueryState -> QueryState
+terminate QueryState{..} = QueryState{..}
+  where qresult = FoundNodes $ fmap nID $ H.take C.k heap
 
--- increment round, send to next a
-continue q = undefined
+continue :: QueryState -> QueryState
+continue QueryState{..} = QueryState{..}
+  where qround = qround + 1
+        qoutgoing = qoutgoing ++ (fmap (QM qround qtarget) $ take C.a $ unqueriedFromK heap)
 
 -- findValue filter can occur before findNode starts.. filter
 -- out incoming messages and decide whether to continue finding the node!!!
 
+-- this is confusing. refactor or die
 findNode :: QueryState -> QueryState
 findNode q@QueryState{..}
   | qresult /= NotDone = q
-  | kQueried heap && desperate = terminate q
+  | roundResps == C.k && kQueried heap && desperate = terminate q
+  | roundResps /= C.k && kQueried heap && desperate = continue q
+  | not $ kQueried heap && desperate = q { desperate = False, qround = qround + 1 }
   | roundResps == C.a && kQueried heap = shotgunK q
   | roundResps == C.a = continue q
   | roundResps /= C.a = q -- TODO: timeout messages
