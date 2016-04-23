@@ -2,9 +2,9 @@ module Node where
 import qualified Constants as C
 import           Message
 import           RoutingData
+import qualified Utils as U
 
 import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet as HS
 import qualified Data.Heap as H
 import qualified Data.List as L
 import qualified Data.Text as T
@@ -12,12 +12,14 @@ import           Data.Time.Clock
 import           Network.Socket
 
 
+type NodeHeap = H.MinHeap NodeHeapInfo
+
 data Node = Node { port :: Port
                  , ip :: IP
                  , nodeID :: ID
                  , tree :: Tree
                  , store :: HM.HashMap ID T.Text
-                 , qstates :: HM.HashMap QueryID QueryState
+                 , qstates :: HM.HashMap QueryID Query
                  , incoming :: [Message]
                  , outgoing :: [Message]
                  , userStores :: [(ID, T.Text)]
@@ -26,108 +28,154 @@ data Node = Node { port :: Port
                  , idToInfo :: HM.HashMap ID IPInfo
                  }
 
-data NodeHeapInfo = NHI { queried :: Bool
-                        , nID :: ID
-                        , distance :: Int
+data NodeHeapInfo = NHI { nhiQueried :: Bool
+                        , nhiNodeID :: ID
+                        , nhiDistance :: Int
                         } deriving (Show)
 
 instance Eq NodeHeapInfo where
-  x == y = (distance x) == (distance y)
+  x == y = (nhiDistance x) == (nhiDistance y)
 
 instance Ord NodeHeapInfo where
-  x <= y = (distance x) <= (distance y)
+  x <= y = (nhiDistance x) <= (nhiDistance y)
 
-data QueryResult = FoundNodes [ID] | NotDone
+data QueryState = FoundNodes [ID] | Recursing | Desperate
                  deriving (Show, Eq)
+
+data QueryRound = QR { qrStillNeed :: Int
+                     , qrRound :: Int
+                     } deriving (Show, Eq)
 
 data QueryMessage = QM { qmRound :: Int
                        , qmTarget :: ID
                        , qmDest :: ID
-                       } deriving (Show)
+                       } deriving (Show, Eq)
 
 data QueryMessageResponse = QMR { qmrSrc :: ID
                                 , qmrRound :: Int
                                 , qmrResults :: [ID]
-                                } deriving (Show)
+                                } deriving (Show, Eq)
 
-data QueryState = QueryState { heap :: H.MinHeap NodeHeapInfo
-                             , queryID :: QueryID
-                             , respsRemain :: Int
-                             , qround :: Int
-                             , qtarget :: ID
-                             , qresult :: QueryResult
-                             , desperate :: Bool
-                             , seen :: HS.HashSet ID
-                             , qoutgoing :: [QueryMessage]
-                             , qincoming :: [QueryMessageResponse]
-                             } deriving (Show)
+data Query = Query { qHeap :: NodeHeap
+                   , qID :: QueryID
+                   , qRound :: QueryRound
+                   , qTarget :: ID
+                   , qState :: QueryState
+                   , qOutgoing :: [QueryMessage]
+                   , qIncoming :: [QueryMessageResponse]
+                   } deriving (Show, Eq)
 
-startFindNode :: ID -> [ID] -> QueryID -> QueryState
-startFindNode target nodes qid = QueryState { heap = aHeap
-                                            , queryID = qid
-                                            , qtarget = target
-                                            , qresult = NotDone
-                                            , respsRemain = C.a
-                                            , qround = 0
-                                            , desperate = False
-                                              -- include entire tree in seen?
-                                            , seen = HS.fromList $ fmap snd aClosest
-                                            , qincoming = []
-                                            , qoutgoing = []
-                                            }
+startFindNode :: ID -> [ID] -> QueryID -> Query
+startFindNode target nodes qid = Query { qHeap = aHeap
+                                       , qID = qid
+                                       , qTarget = target
+                                       , qState = Recursing
+                                       , qRound = QR C.a 0
+                                         -- include entire tree in seen?
+                                       , qIncoming = []
+                                       , qOutgoing = []
+                                       }
   where aClosest = take C.a $ L.sort $ fmap (\n -> (nodeDistance target n, n)) nodes
         aHeap = H.fromAscList $ fmap (\(dist, n) -> NHI False n dist) aClosest
 
-kQueried :: H.MinHeap NodeHeapInfo -> Bool
-kQueried heap = all queried $ H.take C.k heap
+kQueried :: NodeHeap -> Bool
+kQueried heap = all nhiQueried $ H.take C.k heap
 
--- the node infos need to be parsed out and handled in the
--- nodes internal map to keep track of the IP, port
-process :: QueryState -> QueryState
-process QueryState{..}
-  | respsRemain < 0 = error "process wtf"
-  | otherwise = QueryState{..}
-  where respsRemain = respsRemain - (length $ filter (((==) qround) . qmrRound) qincoming)
-        newIDs = HS.difference (HS.fromList $ concat $ fmap qmrResults qincoming) seen
-        heap = HS.foldl' (\h n -> H.insert (NHI False n $ nodeDistance qtarget n) h)
-          heap newIDs
-        qincoming = []
+relevantQMRs :: [QueryMessageResponse] -> Int -> Int
+relevantQMRs qmrs round = length $ filter (U.eq round) $ fmap qmrRound qmrs
 
-toUnqueried :: Int -> ID -> Int -> H.MinHeap NodeHeapInfo -> [QueryMessage]
+modRound :: [QueryMessageResponse] -> QueryRound -> QueryRound
+modRound qmrs q@QR{..} = q { qrStillNeed = qrStillNeed - relevantQMRs qmrs qrRound }
+
+queryModRound :: Query -> Query
+queryModRound q@Query{..} = q { qRound = modRound qIncoming qRound }
+
+roundOver :: [QueryMessageResponse]    -- ^ Messages we've received
+          -> QueryRound                -- ^ Current round
+          -> Bool                      -- ^ Is the round over?
+roundOver qmrs QR{..}
+  | remaining < 0 = error "roundOver wtf"
+  | otherwise = (0 == remaining)
+  where remaining = qrStillNeed - (length $ filter (U.eq qrRound) $ fmap qmrRound qmrs)
+
+nextRound :: Int                       -- ^ How many messages we need next round
+          -> QueryRound                -- ^ Our current round
+          -> QueryRound                -- ^ Updated round
+nextRound newStillNeed qr@QR{..} = qr { qrRound = qrRound + 1
+                                      , qrStillNeed = newStillNeed
+                                      }
+
+heapInsert :: ID -> NodeHeap -> ID -> NodeHeap
+heapInsert target heap nID = H.insert (NHI False nID $ nodeDistance target nID) heap
+
+bulkHeapInsert :: ID           -- ^ Target
+               -> [ID]         -- ^ Discovered nodes (we may have seen some of these already)
+               -> NodeHeap     -- ^ The current heap
+               -> NodeHeap     -- ^ New heap, with the new IDs we havne't seen
+bulkHeapInsert target ids currentHeap = L.foldl' (heapInsert target) currentHeap newIDs
+  where seen = fmap nhiNodeID $ H.toList currentHeap
+        newIDs = L.nub ids L.\\ seen
+
+-- Actual IP info is handled outside of querying
+heapifyIncomingIDs :: Query -> Query
+heapifyIncomingIDs q@Query{..} = q { qHeap = bulkHeapInsert qTarget ids qHeap
+                                   , qIncoming = [] }
+  where ids = concat $ fmap qmrResults qIncoming
+
+toUnqueried :: Int              -- ^ Max messages to send
+            -> ID               -- ^ Target ID
+            -> Int              -- ^ Current round
+            -> NodeHeap         -- ^ Current heap
+            -> [QueryMessage]   -- ^ List of max `only` messages to send out
 toUnqueried only target round heap = new
-  where filtered = filter (not . queried) $ H.take only heap
-        new = fmap ((QM round target) . nID) filtered
+  where filtered = filter (not . nhiQueried) (H.take only heap)
+        new = fmap ((QM round target) . nhiNodeID) filtered
 
-terminate :: H.MinHeap NodeHeapInfo -> QueryResult
-terminate heap = FoundNodes $ fmap nID $ H.take C.k heap
+terminate :: NodeHeap -> QueryState
+terminate heap = FoundNodes $ fmap nhiNodeID $ H.take C.k heap
 
 -- findValue filter can occur before findNode starts.. filter
 -- out incoming messages and decide whether to continue finding the node!!!
 
--- this is confusing. refactor or die
-findNode :: QueryState -> QueryState
-findNode q@QueryState{..}
-  | qresult /= NotDone = q
-  | desperate = desperation q
-  | respsRemain == 0 && kQueried heap = panic
-  | respsRemain == 0 = carryOn
-  | respsRemain > 0 = q -- TODO: timeout messages
-  | otherwise = error "wtf"
-  where toMaxK = toUnqueried C.k qtarget qround heap
-        toMaxA = toUnqueried C.a qtarget qround heap
-        plusRound = q { qround = qround + 1 }
-        panic = plusRound { desperate = True, respsRemain = length toMaxK
-                          , qoutgoing = qoutgoing ++ toMaxK }
-        carryOn = plusRound { qoutgoing = qoutgoing ++ toMaxA
-                            , respsRemain = length toMaxA }
+shouldDespair :: QueryRound -> NodeHeap -> Bool
+shouldDespair QR{..} nodeHeap = qrStillNeed == 0 && kQueried nodeHeap
 
-desperation :: QueryState -> QueryState
-desperation q@QueryState{..}
-  | respsRemain == 0 && kQueried heap = q { qresult = terminate heap }
-  | respsRemain > 0 && kQueried heap = q
-  | respsRemain > 0 && (not $ kQueried heap) = calmDown
-  | respsRemain == 0 && (not $ kQueried heap) = error "desperation wtf"
-    where toMaxA = toUnqueried C.a qtarget qround heap
-          calmDown = q { qround = qround + 1, desperate = False
-                       , respsRemain = length toMaxA
-                       , qoutgoing = qoutgoing ++ toMaxA }
+despair :: Query -> Query
+despair q@Query{..} = q { qState = Desperate
+                        , qRound = nextRound expect qRound
+                        , qOutgoing = qOutgoing ++ outgoingToClosestK }
+  where outgoingToClosestK = toUnqueried C.k qTarget (qrRound qRound) qHeap
+        expect = length outgoingToClosestK
+
+stepRecurse :: Query -> Query
+stepRecurse q@Query{..} = q { qState = Recursing
+                            , qRound = nextRound expect qRound
+                            , qOutgoing = qOutgoing ++ outgoingToClosestA }
+  where outgoingToClosestA = toUnqueried C.a qTarget (qrRound qRound) qHeap
+        expect = length outgoingToClosestA
+
+findNode :: Query -> Query
+findNode = switchState . heapifyIncomingIDs . queryModRound
+
+hasFoundNodes :: QueryState -> Bool
+hasFoundNodes (FoundNodes _) = True
+hasFoundNodes _ = False
+
+switchState :: Query -> Query
+switchState q@Query{..}
+  | hasFoundNodes qState = q
+  | qState == Desperate = desperation q
+  | otherwise = recurse q
+
+-- todo: timeout messages if it's been a while
+recurse :: Query -> Query
+recurse q@Query{..}
+  | shouldDespair qRound qHeap = despair q
+  | roundOver qIncoming qRound = stepRecurse q
+  | otherwise = q
+
+desperation :: Query -> Query
+desperation q@Query{..}
+  | shouldDespair qRound qHeap = q { qState = terminate qHeap }
+  | roundOver qIncoming qRound && (not $ kQueried qHeap) = stepRecurse q
+  | otherwise = q

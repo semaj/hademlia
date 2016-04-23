@@ -1,6 +1,9 @@
 module Utils where
 import qualified Data.List as L
 
+eq :: Eq a => a -> a -> Bool
+eq = (==)
+
 apnd :: [a] -> a -> [a]
 apnd as a = as ++ [a]
 
