@@ -165,15 +165,14 @@ switchState q@Query{..}
 stepDesperate :: Query -> Query
 stepDesperate q@Query{..}
   | shouldDespair qRound qHeap = q { qState = terminate qHeap }
-  | roundOver qIncoming qRound && (not $ kQueried qHeap) = stepSearch q
-  | otherwise = q
+  | roundOver qIncoming qRound && (not $ kQueried qHeap) = q { qState = Searching }
+  | otherwise = q -- this should timeout, eventually
 
 stepSearch :: Query -> Query
 stepSearch q@Query{..}
   | not $ roundOver qIncoming qRound = q
-  | otherwise = q { qState = Searching
-                  , qRound = nextRound expect qRound
-                  , qOutgoing = qOutgoing ++ outgoingToClosestA }
+   | otherwise = q { qRound = nextRound expect qRound
+                   , qOutgoing = qOutgoing ++ outgoingToClosestA }
   where outgoingToClosestA = toUnqueried C.a qTarget (qrRound qRound) qHeap
         expect = length outgoingToClosestA
 
