@@ -39,7 +39,7 @@ instance Eq NodeHeapInfo where
 instance Ord NodeHeapInfo where
   x <= y = (nhiDistance x) <= (nhiDistance y)
 
-data QueryState = FoundNodes [ID] | Recursing | Desperate
+data QueryState = FoundNodes [ID] | Searching | Desperate
                  deriving (Show, Eq)
 
 data QueryRound = QR { qrStillNeed :: Int
@@ -69,7 +69,7 @@ startFindNode :: ID -> [ID] -> QueryID -> Query
 startFindNode target nodes qid = Query { qHeap = aHeap
                                        , qID = qid
                                        , qTarget = target
-                                       , qState = Recursing
+                                       , qState = Searching
                                        , qRound = QR C.a 0
                                          -- include entire tree in seen?
                                        , qIncoming = []
@@ -140,22 +140,17 @@ terminate heap = FoundNodes $ fmap nhiNodeID $ H.take C.k heap
 shouldDespair :: QueryRound -> NodeHeap -> Bool
 shouldDespair QR{..} nodeHeap = qrStillNeed == 0 && kQueried nodeHeap
 
+desperationCheck :: Query -> Query
+desperationCheck q@Query{..} = if qState /= Desperate && shouldDespair qRound qHeap
+                               then despair q
+                               else q
+
 despair :: Query -> Query
 despair q@Query{..} = q { qState = Desperate
                         , qRound = nextRound expect qRound
                         , qOutgoing = qOutgoing ++ outgoingToClosestK }
   where outgoingToClosestK = toUnqueried C.k qTarget (qrRound qRound) qHeap
         expect = length outgoingToClosestK
-
-stepRecurse :: Query -> Query
-stepRecurse q@Query{..} = q { qState = Recursing
-                            , qRound = nextRound expect qRound
-                            , qOutgoing = qOutgoing ++ outgoingToClosestA }
-  where outgoingToClosestA = toUnqueried C.a qTarget (qrRound qRound) qHeap
-        expect = length outgoingToClosestA
-
-findNode :: Query -> Query
-findNode = switchState . heapifyIncomingIDs . queryModRound
 
 hasFoundNodes :: QueryState -> Bool
 hasFoundNodes (FoundNodes _) = True
@@ -164,18 +159,23 @@ hasFoundNodes _ = False
 switchState :: Query -> Query
 switchState q@Query{..}
   | hasFoundNodes qState = q
-  | qState == Desperate = desperation q
-  | otherwise = recurse q
+  | qState == Desperate = stepDesperate q
+  | otherwise = stepSearch q
 
--- todo: timeout messages if it's been a while
-recurse :: Query -> Query
-recurse q@Query{..}
-  | shouldDespair qRound qHeap = despair q
-  | roundOver qIncoming qRound = stepRecurse q
-  | otherwise = q
-
-desperation :: Query -> Query
-desperation q@Query{..}
+stepDesperate :: Query -> Query
+stepDesperate q@Query{..}
   | shouldDespair qRound qHeap = q { qState = terminate qHeap }
-  | roundOver qIncoming qRound && (not $ kQueried qHeap) = stepRecurse q
+  | roundOver qIncoming qRound && (not $ kQueried qHeap) = stepSearch q
   | otherwise = q
+
+stepSearch :: Query -> Query
+stepSearch q@Query{..}
+  | not $ roundOver qIncoming qRound = q
+  | otherwise = q { qState = Searching
+                  , qRound = nextRound expect qRound
+                  , qOutgoing = qOutgoing ++ outgoingToClosestA }
+  where outgoingToClosestA = toUnqueried C.a qTarget (qrRound qRound) qHeap
+        expect = length outgoingToClosestA
+
+findNode :: Query -> Query
+findNode = switchState . desperationCheck . heapifyIncomingIDs . queryModRound
