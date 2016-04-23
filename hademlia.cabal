@@ -21,6 +21,7 @@ library
                      , Constants
                      , RoutingData
                      , Utils
+                     , Query
                      , Real
                      , Sim
   build-depends:       base >= 4.7 && < 5
