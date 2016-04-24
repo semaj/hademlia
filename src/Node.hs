@@ -9,16 +9,17 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import           Data.Time.Clock
 
-data Node = Node { port :: Port
-                 , ip :: IP
-                 , nodeID :: ID
-                 , tree :: Tree
-                 , store :: HM.HashMap ID T.Text
-                 , qstates :: HM.HashMap QueryID Query
-                 , incoming :: [Message]
-                 , outgoing :: [Message]
-                 , userStores :: [(ID, T.Text)]
-                 , lastTime :: HM.HashMap ID UTCTime
-                 , lastSent :: HM.HashMap ID Message
-                 , idToInfo :: HM.HashMap ID IPInfo
+data Node = Node { nPort :: Port
+                 , nIP :: IP
+                 , nNodeID :: ID
+                 , nTree :: Tree
+                 , nStore :: HM.HashMap ID T.Text
+                 , nFindValueQueries :: HM.HashMap QueryID Query
+                 , nFindNodeQueries :: HM.HashMap QueryID Query
+                 , nIncoming :: [Message]
+                 , nOutgoing :: [Message]
+                 , nUserStores :: [(ID, T.Text)]
+                 , nLastSeen :: HM.HashMap ID UTCTime
+                 , nLastSent :: HM.HashMap ID Message
+                 , nNodeInfos :: HM.HashMap ID IPInfo
                  }

@@ -1,4 +1,5 @@
 module Message where
+import Query
 import RoutingData
 
 import Data.Aeson
@@ -19,7 +20,6 @@ data Message
   , dest :: ID                         -- ^ Who is it destined for?
   , sent :: UTCTime                    -- ^ When was it sent?
   , mID :: Text                        -- ^ Unique UUID for this message
-  , qID :: Text                        -- ^ Unique UUID for query it belongs to
   }
   | FindNode
   { src :: ID                          -- ^ Who sent it?
@@ -28,7 +28,7 @@ data Message
   , sent :: UTCTime                    -- ^ When was it sent?
   , mRound :: Int                      -- ^ Which find-Round does it belong to?
   , mID :: Text                        -- ^ Unique UUID for this message
-  , qID :: Text                        -- ^ Unique UUID for query it belongs to
+  , qID :: QueryID                     -- ^ Unique UUID for query it belongs to
   }
   | FindNodeR
   { src :: ID                          -- ^ Who sent it?
@@ -37,7 +37,7 @@ data Message
   , sent :: UTCTime                    -- ^ When was it sent?
   , mRound :: Int                      -- ^ Which find-Round does it belong to?
   , mID :: Text                        -- ^ Unique UUID for this message
-  , qID :: Text                        -- ^ Unique UUID for query it belongs to
+  , qID :: QueryID                     -- ^ Unique UUID for query it belongs to
   }
   | FindValue
   { src :: ID                          -- ^ Who sent it?
@@ -45,7 +45,7 @@ data Message
   , key :: ID                          -- ^ Under which key is the value we're trying to obtain?
   , sent :: UTCTime                    -- ^ When was it sent?
   , mID :: Text                        -- ^ Unique UUID for this message
-  , qID :: Text                        -- ^ Unique UUID for query it belongs to
+  , qID :: QueryID                     -- ^ Unique UUID for query it belongs to
   }
   | FindValueR
   { src :: ID                          -- ^ Who sent it?
@@ -53,9 +53,19 @@ data Message
   , value :: Text                      -- ^ What value did we have under that key?
   , sent :: UTCTime                    -- ^ When was it sent?
   , mID :: Text                        -- ^ Unique UUID for this message
-  , qID :: Text                        -- ^ Unique UUID for query it belongs to
+  , qID :: QueryID                     -- ^ Unique UUID for query it belongs to
   }
   deriving (Show)
+
+toQueryMessageResponse :: Message -> Maybe QueryMessageResponse
+toQueryMessageResponse FindNodeR{..} = Just $ QMR src mRound $ fmap fst results
+toQueryMessageResponse _ = Nothing
+
+findNodeFromQM :: ID -> UTCTime -> QueryID -> Text -> QueryMessage -> Message
+findNodeFromQM myID now qID messageID QM{..} = FindNode myID qmDest qmTarget now qmRound messageID qID
+
+findValueFromQM :: ID -> UTCTime -> QueryID -> Text -> QueryMessage -> Message
+findValueFromQM myID now qID messageID QM{..} = FindValue myID qmDest qmTarget now messageID qID
 
 deserialize :: String -> Message
 deserialize s = undefined
