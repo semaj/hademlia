@@ -1,11 +1,12 @@
 module Message where
-import Query
-import RoutingData
+import           Query
+import           RoutingData
 
-import Data.Aeson
-import Data.Text
-import GHC.Generics
-import Data.Time.Clock
+import           Data.Aeson
+import qualified Data.Maybe as M
+import           Data.Text
+import           Data.Time.Clock
+import           GHC.Generics
 
 
 -- let's assume network is reliable right? we don't need an ack...
@@ -57,9 +58,12 @@ data Message
   }
   deriving (Show)
 
-toQueryMessageResponse :: Message -> Maybe QueryMessageResponse
-toQueryMessageResponse FindNodeR{..} = Just $ QMR src mRound $ fmap fst results
+toQueryMessageResponse :: Message -> Maybe (QueryID, QueryMessageResponse)
+toQueryMessageResponse FindNodeR{..} = Just (qID, QMR src mRound $ fmap fst results)
 toQueryMessageResponse _ = Nothing
+
+bulkToQueryMessageResponse :: [Message] -> [(QueryID, QueryMessageResponse)]
+bulkToQueryMessageResponse = M.catMaybes . fmap toQueryMessageResponse
 
 findNodeFromQM :: ID -> UTCTime -> QueryID -> Text -> QueryMessage -> Message
 findNodeFromQM myID now qID messageID QM{..} = FindNode myID qmDest qmTarget now qmRound messageID qID
