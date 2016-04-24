@@ -21,18 +21,19 @@ data Sim = Sim { nodes :: HM.HashMap IPInfo Node
                }
 
 testNode :: ID -> ID -> UTCTime -> Node
-testNode ours theirs now = Node { port = 0
-                                , ip = ours
-                                , nodeID = ours
-                                , tree = Leaf [theirs]
-                                , store = HM.empty
-                                , qstates = HM.empty
-                                , incoming = []
-                                , outgoing = []
-                                , userStores = []
-                                , lastTime = HM.fromList [(theirs, now)]
-                                , lastSent = HM.empty
-                                , idToInfo = HM.fromList [(theirs, (theirs, 0))]
+testNode ours theirs now = Node { nPort = 0
+                                , nIP = ours
+                                , nNodeID = ours
+                                , nTree = Leaf [theirs]
+                                , nStore = HM.empty
+                                , nFindValueQueries = HM.empty
+                                , nFindNodeQueries = HM.empty
+                                , nIncoming = []
+                                , nOutgoing = []
+                                , nUserStores = []
+                                , nLastSeen = HM.fromList [(theirs, now)]
+                                , nLastSent = HM.empty
+                                , nNodeInfos = HM.fromList [(theirs, (theirs, 0))]
                                 }
 
 
