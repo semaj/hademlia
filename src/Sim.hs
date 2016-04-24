@@ -30,10 +30,12 @@ testNode ours theirs now = Node { nPort = 0
                                 , nFindNodeQueries = HM.empty
                                 , nIncoming = []
                                 , nOutgoing = []
-                                , nUserStores = []
+                                , nPendingStores = []
+                                , nPendingFinds = []
                                 , nLastSeen = HM.fromList [(theirs, now)]
                                 , nLastSent = HM.empty
                                 , nNodeInfos = HM.fromList [(theirs, (theirs, 0))]
+                                , nPrintBuffer = []
                                 }
 
 

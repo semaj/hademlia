@@ -8,7 +8,8 @@ import qualified Utils as U
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.List as L
-import qualified Data.Time.Clock as CLOCK
+import qualified Data.Maybe as M
+import qualified Data.Time.Clock as Clock
 
 type Queries = HM.HashMap QueryID Query
 type KVStore = HM.HashMap ID T.Text
@@ -22,17 +23,28 @@ data Node = Node { nPort :: Port
                  , nFindNodeQueries :: Queries
                  , nIncoming :: [Message]
                  , nOutgoing :: [Message]
-                 , nUserStores :: [(ID, T.Text)]
-                 , nLastSeen :: HM.HashMap ID CLOCK.UTCTime
+                 , nPendingStores :: [(ID, T.Text)]
+                 , nPendingFinds :: [ID]
+                 , nLastSeen :: HM.HashMap ID Clock.UTCTime
                  , nLastSent :: HM.HashMap ID Message
                  , nNodeInfos :: HM.HashMap ID IPInfo
+                 , nPrintBuffer :: [T.Text]
                  }
 
 routeToQueries :: [(QueryID, QueryMessageResponse)] -> Queries -> Queries
 routeToQueries qmrPairs queries = L.foldl' myInsert queries qmrPairs
-  where myInsert accQueries (queryID, qmr) = if HM.member queryID accQueries
-                                             then HM.adjust (insertIncoming qmr) queryID accQueries
-                                             else error "routToQueries wtf"
+  where myInsert accQueries (queryID, qmr) = HM.adjust (insertIncoming qmr) queryID accQueries
 
-delegateIncoming :: Node -> Node
-delegateIncoming Node{..} = undefined
+delegateIncomingResponses :: Node -> Node
+delegateIncomingResponses n@Node{..} = n { nFindValueQueries = routeToQueries translated nFindValueQueries
+                                         , nFindNodeQueries = routeToQueries translated nFindNodeQueries }
+  where translated = bulkToQueryMessageResponse nIncoming
+
+retrieveNodes :: Queries -> [(ID, [ID])]
+retrieveNodes = M.catMaybes . fmap fetchFoundNodes . HM.elems
+
+clearFoundNodes :: Queries -> Queries
+clearFoundNodes = HM.filter (M.isJust . fetchFoundNodes)
+
+clearFinishedQueries :: Node -> Node
+clearFinishedQueries n@Node{..} = n { nFindNodeQueries = clearFoundNodes nFindNodeQueries }
