@@ -51,12 +51,21 @@ data Message
   | FindValueR
   { src :: ID                          -- ^ Who sent it?
   , dest :: ID                         -- ^ Who is it destined for?
+  , key :: ID                          -- ^ What keyw as the value under?
   , value :: Text                      -- ^ What value did we have under that key?
   , sent :: UTCTime                    -- ^ When was it sent?
   , mID :: Text                        -- ^ Unique UUID for this message
   , qID :: QueryID                     -- ^ Unique UUID for query it belongs to
   }
   deriving (Show)
+
+isFindValueR :: Message -> Bool
+isFindValueR FindValueR{..} = True
+isFindValueR _ = False
+
+cleanFindValueR :: Message -> Maybe (QueryID, ID, Text)
+cleanFindValueR FindValueR{..} = Just (qID, key, value)
+cleanFindValueR _ = Nothing
 
 toQueryMessageResponse :: Message -> Maybe (QueryID, QueryMessageResponse)
 toQueryMessageResponse FindNodeR{..} = Just (qID, QMR src mRound $ fmap fst results)

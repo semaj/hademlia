@@ -58,3 +58,12 @@ clearFinishedQueries n@Node{..} = n { nFindNodeQueries = clearFoundNodes nFindNo
 
 removeFindValueQuery :: Node -> QueryID -> Node
 removeFindValueQuery n@Node{..} qID = n { nFindValueQueries = HM.delete qID nFindValueQueries }
+
+pruneFindValueRIncoming :: Node -> Node
+pruneFindValueRIncoming n@Node{..} = n { nIncoming = filter (not . isFindValueR) nIncoming }
+
+findValueRsOnly :: [Message] -> [(QueryID, ID, T.Text)]
+findValueRsOnly = M.catMaybes . fmap cleanFindValueR
+
+ripFindValueRs :: Node -> [(QueryID, ID, T.Text)]
+ripFindValueRs n@Node{..} = findValueRsOnly nIncoming
