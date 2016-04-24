@@ -28,7 +28,7 @@ data Node = Node { nPort :: Port
                  , nLastSeen :: HM.HashMap ID Clock.UTCTime
                  , nLastSent :: HM.HashMap ID Message
                  , nNodeInfos :: HM.HashMap ID IPInfo
-                 , nPrintBuffer :: [T.Text]
+                 , nPrintBuffer :: [String]
                  }
 
 routeToQueries :: [(QueryID, QueryMessageResponse)] -> Queries -> Queries
@@ -53,8 +53,8 @@ matchValueToNodeIDs pending targetToNodes = M.catMaybes $ L.foldl' locate [] pen
 storesToExecute :: Node -> [([ID], T.Text)]
 storesToExecute Node{..} = matchValueToNodeIDs nPendingStores $ retrieveNodes nFindNodeQueries
 
-clearFinishedQueries :: Node -> Node
-clearFinishedQueries n@Node{..} = n { nFindNodeQueries = clearFoundNodes nFindNodeQueries }
+clearFinishedFindNodes :: Node -> Node
+clearFinishedFindNodes n@Node{..} = n { nFindNodeQueries = clearFoundNodes nFindNodeQueries }
 
 removeFindValueQuery :: Node -> QueryID -> Node
 removeFindValueQuery n@Node{..} qID = n { nFindValueQueries = HM.delete qID nFindValueQueries }
@@ -65,5 +65,16 @@ pruneFindValueRIncoming n@Node{..} = n { nIncoming = filter (not . isFindValueR)
 findValueRsOnly :: [Message] -> [(QueryID, ID, T.Text)]
 findValueRsOnly = M.catMaybes . fmap cleanFindValueR
 
-ripFindValueRs :: Node -> [(QueryID, ID, T.Text)]
-ripFindValueRs n@Node{..} = findValueRsOnly nIncoming
+showValueTriples :: [(QueryID, ID, T.Text)] -> [String]
+showValueTriples = fmap (show . U.sndthd)
+
+removeFindValueRQueries :: Node -> Node
+removeFindValueRQueries n@Node{..} = L.foldl' removeFindValueQuery n fvrs
+  where fvrs = fmap U.tfst $ findValueRsOnly nIncoming
+
+bufferFoundValues :: Node -> Node
+bufferFoundValues n@Node{..} = Node{..}
+  where nPrintBuffer = nPrintBuffer ++ (showValueTriples . findValueRsOnly $ nIncoming)
+
+foundValues :: Node -> Node
+foundValues = pruneFindValueRIncoming . removeFindValueRQueries . bufferFoundValues

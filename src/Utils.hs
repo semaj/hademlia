@@ -10,6 +10,12 @@ apnd as a = as ++ [a]
 asnd :: a -> b -> (b, a)
 asnd a b = (b, a)
 
+tfst :: (a, b, c) -> a
+tfst (a, b, c) = a
+
+sndthd :: (a, b, c) -> (b, c)
+sndthd (a, b, c) = (b, c)
+
 get :: [a] -> Int -> Maybe a
 get [] _ = Nothing
 get (x:_) 0 = Just x
