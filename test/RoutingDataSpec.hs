@@ -1,5 +1,6 @@
 module RoutingDataSpec where
 import RoutingData
+import Utils
 import Test.Hspec
 
 nodeA = "A"
