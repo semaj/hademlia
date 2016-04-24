@@ -40,11 +40,18 @@ delegateIncomingResponses n@Node{..} = n { nFindValueQueries = routeToQueries tr
                                          , nFindNodeQueries = routeToQueries translated nFindNodeQueries }
   where translated = bulkToQueryMessageResponse nIncoming
 
-retrieveNodes :: Queries -> [(ID, [ID])]
-retrieveNodes = M.catMaybes . fmap fetchFoundNodes . HM.elems
+retrieveNodes :: Queries -> HM.HashMap ID [ID]
+retrieveNodes = HM.fromList . M.catMaybes . fmap fetchFoundNodes . HM.elems
 
 clearFoundNodes :: Queries -> Queries
 clearFoundNodes = HM.filter (M.isJust . fetchFoundNodes)
+
+matchValueToNodeIDs :: [(ID, T.Text)] -> HM.HashMap ID [ID] -> [([ID], T.Text)]
+matchValueToNodeIDs pending targetToNodes = M.catMaybes $ L.foldl' locate [] pending
+  where locate acc (target, value) = U.apnd acc $ fmap (U.asnd value) $ HM.lookup target targetToNodes
+
+storesToExecute :: Node -> [([ID], T.Text)]
+storesToExecute Node{..} = matchValueToNodeIDs nPendingStores $ retrieveNodes nFindNodeQueries
 
 clearFinishedQueries :: Node -> Node
 clearFinishedQueries n@Node{..} = n { nFindNodeQueries = clearFoundNodes nFindNodeQueries }

@@ -7,6 +7,9 @@ eq = (==)
 apnd :: [a] -> a -> [a]
 apnd as a = as ++ [a]
 
+asnd :: a -> b -> (b, a)
+asnd a b = (b, a)
+
 get :: [a] -> Int -> Maybe a
 get [] _ = Nothing
 get (x:_) 0 = Just x
