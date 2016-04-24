@@ -55,3 +55,6 @@ storesToExecute Node{..} = matchValueToNodeIDs nPendingStores $ retrieveNodes nF
 
 clearFinishedQueries :: Node -> Node
 clearFinishedQueries n@Node{..} = n { nFindNodeQueries = clearFoundNodes nFindNodeQueries }
+
+removeFindValueQuery :: Node -> QueryID -> Node
+removeFindValueQuery n@Node{..} qID = n { nFindValueQueries = HM.delete qID nFindValueQueries }
