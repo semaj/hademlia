@@ -34,6 +34,7 @@ closestKBucket (Branch z _) ('0':restID) = closestKBucket z restID
 closestKBucket (Branch _ _) [] = error "closest: tree is taller than id is long"
 
 -- | Inserts a node into our routing tree, performing kbucket splits as necessary.
+-- if the node ID was already in the k-bucket, remove it and add it to the end.
 insert :: Tree     -- ^ Current Tree
        -> ID       -- ^ The current node's ID
        -> ID       -- ^ The node we are inserting
@@ -43,9 +44,9 @@ insert t nid wid = insert' t nid wid wid
 insert' :: Tree -> ID -> ID -> String -> Tree
 insert' (Leaf kbucket) u wid suffix
     | kbFull kbucket && kbContainsID kbucket u =
-        splitBucket (U.apnd kbucket wid) $ length wid - length suffix
+        splitBucket (U.apnd (L.delete wid kbucket) wid) $ length wid - length suffix
     | kbFull kbucket = Leaf kbucket
-    | otherwise = Leaf $ U.apnd kbucket wid
+    | otherwise = Leaf $ U.apnd (L.delete wid kbucket) wid
 insert' (Branch z o) u w ('1':restID) = Branch z (insert' o u w restID)
 insert' (Branch z o) u w ('0':restID) = Branch (insert' z u w restID) o
 insert' (Branch _ _) _ _ [] = error "insert: tree is taller than id is long"
