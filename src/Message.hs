@@ -16,6 +16,7 @@ import           GHC.Generics
 data Message
   = Store
   { src :: ID                          -- ^ Who sent it?
+  , srcInfo :: IPInfo
   , key :: ID                          -- ^ Under what key are we storing the value?
   , value :: Text                      -- ^ What value are we storing?
   , dest :: ID                         -- ^ Who is it destined for?
@@ -24,6 +25,7 @@ data Message
   }
   | FindNode
   { src :: ID                          -- ^ Who sent it?
+  , srcInfo :: IPInfo
   , dest :: ID                         -- ^ Who is it destined for?
   , target :: ID                       -- ^ Who are we trying to find?
   , sent :: UTCTime                    -- ^ When was it sent?
@@ -33,6 +35,7 @@ data Message
   }
   | FindNodeR
   { src :: ID                          -- ^ Who sent it?
+  , srcInfo :: IPInfo
   , dest :: ID                         -- ^ Who is it destined for?
   , results :: [NodeInfo]              -- ^ Who is close to the target?
   , sent :: UTCTime                    -- ^ When was it sent?
@@ -42,6 +45,7 @@ data Message
   }
   | FindValue
   { src :: ID                          -- ^ Who sent it?
+  , srcInfo :: IPInfo
   , dest :: ID                         -- ^ Who is it destined for
   , key :: ID                          -- ^ Under which key is the value we're trying to obtain?
   , sent :: UTCTime                    -- ^ When was it sent?
@@ -50,6 +54,7 @@ data Message
   }
   | FindValueR
   { src :: ID                          -- ^ Who sent it?
+  , srcInfo :: IPInfo
   , dest :: ID                         -- ^ Who is it destined for?
   , key :: ID                          -- ^ What keyw as the value under?
   , value :: Text                      -- ^ What value did we have under that key?
@@ -63,6 +68,10 @@ isFindValueR :: Message -> Bool
 isFindValueR FindValueR{..} = True
 isFindValueR _ = False
 
+getNodeInfos :: Message -> [NodeInfo]
+getNodeInfos FindNodeR{..} = results
+getNodeInfos _ = []
+
 cleanFindValueR :: Message -> Maybe (QueryID, ID, Text)
 cleanFindValueR FindValueR{..} = Just (qID, key, value)
 cleanFindValueR _ = Nothing
@@ -74,11 +83,11 @@ toQueryMessageResponse _ = Nothing
 bulkToQueryMessageResponse :: [Message] -> [(QueryID, QueryMessageResponse)]
 bulkToQueryMessageResponse = M.catMaybes . fmap toQueryMessageResponse
 
-findNodeFromQM :: ID -> UTCTime -> QueryID -> Text -> QueryMessage -> Message
-findNodeFromQM myID now qID messageID QM{..} = FindNode myID qmDest qmTarget now qmRound messageID qID
+findNodeFromQM :: ID -> IPInfo -> UTCTime -> QueryID -> Text -> QueryMessage -> Message
+findNodeFromQM myID ip now qID messageID QM{..} = FindNode myID ip qmDest qmTarget now qmRound messageID qID
 
-findValueFromQM :: ID -> UTCTime -> QueryID -> Text -> QueryMessage -> Message
-findValueFromQM myID now qID messageID QM{..} = FindValue myID qmDest qmTarget now messageID qID
+findValueFromQM :: ID -> IPInfo -> UTCTime -> QueryID -> Text -> QueryMessage -> Message
+findValueFromQM myID ip now qID messageID QM{..} = FindValue myID ip qmDest qmTarget now messageID qID
 
 deserialize :: String -> Message
 deserialize s = undefined

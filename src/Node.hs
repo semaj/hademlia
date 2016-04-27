@@ -1,8 +1,7 @@
 module Node where
-import qualified Constants as C
 import           Message
 import           Query
-import           RoutingData
+import           RoutingData as RD
 import qualified Utils as U
 
 import qualified Data.HashMap.Strict as HM
@@ -73,8 +72,42 @@ removeFindValueRQueries n@Node{..} = L.foldl' removeFindValueQuery n fvrs
   where fvrs = fmap U.tfst $ findValueRsOnly nIncoming
 
 bufferFoundValues :: Node -> Node
-bufferFoundValues n@Node{..} = Node{..}
-  where nPrintBuffer = nPrintBuffer ++ (showValueTriples . findValueRsOnly $ nIncoming)
+bufferFoundValues n@Node{..} = n { nPrintBuffer = nPrintBuffer' }
+  where nPrintBuffer' = nPrintBuffer ++ (showValueTriples . findValueRsOnly $ nIncoming)
 
 foundValues :: Node -> Node
 foundValues = pruneFindValueRIncoming . removeFindValueRQueries . bufferFoundValues
+
+slurpSourcesIntoTree :: [Message] -> ID -> Tree -> Tree
+slurpSourcesIntoTree incoming myID tree = L.foldl' folder tree sources
+  where sources = fmap src incoming
+        folder accTree source = RD.insert accTree myID source
+
+slurpSources :: Node -> Node
+slurpSources n@Node{..} = n { nTree = slurpSourcesIntoTree nIncoming nNodeID nTree }
+
+slurpSourceInfosIntoMap :: [Message] -> HM.HashMap ID IPInfo -> HM.HashMap ID IPInfo
+slurpSourceInfosIntoMap incoming infos = L.foldl' folder infos incoming
+  where folder accMap mess = HM.insert (src mess) (srcInfo mess) accMap
+
+slurpSourceInfos :: Node -> Node
+slurpSourceInfos n@Node{..} = n { nNodeInfos = slurpSourceInfosIntoMap nIncoming nNodeInfos }
+
+-- last seen, last sent, findr results into nodeinfos
+
+slurpNewNodeInfosIntoMap :: [Message] -> HM.HashMap ID IPInfo -> HM.HashMap ID IPInfo
+slurpNewNodeInfosIntoMap incoming infos = L.foldl' folder infos $ concat $ fmap getNodeInfos incoming
+  where folder accMap info = HM.insert (fst info) (snd info) accMap
+
+slurpNewNodeInfos :: Node -> Node
+slurpNewNodeInfos n@Node{..} = n { nNodeInfos = slurpNewNodeInfosIntoMap nIncoming nNodeInfos }
+
+slurpNewNodeIDsIntoTree :: [Message] -> ID -> Tree -> Tree
+slurpNewNodeIDsIntoTree incoming myID tree = L.foldl' folder tree $ concat $ fmap getNodeInfos incoming
+  where folder accTree info = RD.insert accTree myID (fst info)
+
+slurpNewNodeIDs :: Node -> Node
+slurpNewNodeIDs n@Node{..} = n { nTree = slurpNewNodeIDsIntoTree nIncoming nNodeID nTree }
+
+slurp :: Node -> Node
+slurp = slurpNewNodeIDs . slurpNewNodeInfos . slurpSources . slurpSourceInfos

@@ -8,9 +8,6 @@ import           Control.Monad
 import qualified Data.HashMap.Strict as HM
 import qualified Message as M
 import           Network.Socket
-import qualified Node as N
-import           System.Environment
-import           System.IO
 
 start :: String -> Maybe String -> IO ()
 start port bootstrap =

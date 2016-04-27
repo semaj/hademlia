@@ -10,6 +10,7 @@ import qualified Data.Text as T
 import           Data.Time.Clock
 import           System.Random
 
+idBits :: Int
 idBits = 10
 
 idRange :: (Int, Int)
