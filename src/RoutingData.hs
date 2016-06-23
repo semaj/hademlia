@@ -66,5 +66,10 @@ splitBucket kb splitIndex
      where (zeros, ones) = L.partition (\nid -> (nid!!splitIndex) == '0') kb
            newIndex = splitIndex + 1
 
+-- | Order is unimportant, since it will probably be sorted anyway
+treeToList :: Tree -> [ID]
+treeToList (Leaf kb) = kb
+treeToList (Branch a b) = treeToList a ++ treeToList b
+
 nodeDistance :: ID -> ID -> Int
 nodeDistance x y = U.bitsToDec $ zipWith U.xor x y
