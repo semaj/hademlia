@@ -7,8 +7,8 @@ eq = (==)
 apnd :: [a] -> a -> [a]
 apnd as a = as ++ [a]
 
-asnd :: a -> b -> (b, a)
-asnd a b = (b, a)
+arvs :: a -> b -> (b, a)
+arvs a b = (b, a)
 
 tfst :: (a, b, c) -> a
 tfst (a, b, c) = a

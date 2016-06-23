@@ -58,12 +58,15 @@ startFindNode target nodes qid = Query { qHeap = aHeap
   where aClosest = take C.a $ L.sort $ fmap (\n -> (nodeDistance target n, n)) nodes
         aHeap = H.fromAscList $ fmap (\(dist, n) -> NHI False n dist) aClosest
 
-getStateNodes :: ID -> QueryState -> Maybe (ID, [ID])
-getStateNodes target (FoundNodes val) = Just (target, val)
-getStateNodes target _ = Nothing
+-- | Returns nodes found from a FIND_NODE query if
+-- the query was FIND_NODE. A list keyed off the target node.
+getFoundNodes :: ID -> QueryState -> Maybe (ID, [ID])
+getFoundNodes target (FoundNodes val) = Just (target, val)
+getFoundNodes target _ = Nothing
 
+-- | Query-wrapped `getFoundNodes`
 fetchFoundNodes :: Query -> Maybe (ID, [ID])
-fetchFoundNodes q@Query{..} = getStateNodes qTarget qState
+fetchFoundNodes q@Query{..} = getFoundNodes qTarget qState
 
 insertIncoming :: QueryMessageResponse -> Query-> Query
 insertIncoming qmr q@Query{..} = q { qIncoming = U.apnd qIncoming qmr }
