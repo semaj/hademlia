@@ -56,27 +56,30 @@ delegateIncomingResponses n@Node{..}
 retrieveNodes :: Queries -> HM.HashMap RD.ID [RD.ID]
 retrieveNodes = HM.fromList . M.catMaybes . fmap Q.fetchFoundNodes . HM.elems
 
--- | Filters for find_node queries that found nodes
-successfulFindNodeQueries :: Queries -> Queries
-successfulFindNodeQueries = HM.filter (M.isJust . Q.fetchFoundNodes)
+-- | Filters for find_node queries that are not finished
+unfinishedFindNodeQueries :: Queries -> Queries
+unfinishedFindNodeQueries = HM.filter (M.isNothing . Q.fetchFoundNodes)
 
--- |
-matchKeyToNodeIDs :: [(RD.ID, T.Text)]
+-- | Finds the IDs for the nodes at which we will store
+-- each pending store data (key, value) from the given
+-- target -> node ids hashmap, pulled from FIND_NODE responses
+matchStoresToTargets :: [(RD.ID, T.Text)]
                     -> HM.HashMap RD.ID [RD.ID]
                     -> [([RD.ID], T.Text)]
-matchKeyToNodeIDs pending targetToNodes
+matchStoresToTargets pending targetToNodes
    = M.catMaybes $ L.foldl' locate [] pending
   where locate acc (target, value) =
           U.apnd acc $ fmap (U.arvs value) $ HM.lookup target targetToNodes
 
+-- | Wrapped `matchStoresToTargets`. Finds targets
 storesToExecute :: Node -> [([RD.ID], T.Text)]
 storesToExecute Node{..}
-  = matchKeyToNodeIDs nPendingStores $ retrieveNodes nFindNodeQueries
+  = matchStoresToTargets nPendingStores $ retrieveNodes nFindNodeQueries
 
--- | Wrapped `successfulFindNodeQueries`
+-- | Wrapped `unfinishedFindNodeQueries`
 clearFinishedFindNodes :: Node -> Node
 clearFinishedFindNodes n@Node{..}
-  = n { nFindNodeQueries = successfulFindNodeQueries nFindNodeQueries }
+  = n { nFindNodeQueries = unfinishedFindNodeQueries nFindNodeQueries }
 
 removeFindValueQuery :: Node -> RD.QueryID -> Node
 removeFindValueQuery n@Node{..} qID
