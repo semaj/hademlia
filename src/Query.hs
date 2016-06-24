@@ -20,7 +20,7 @@ instance Ord NodeHeapInfo where
   x <= y = (nhiDistance x) <= (nhiDistance y)
 
 data QueryState = FoundNodes [ID] | Searching | Desperate
-                 deriving (Show, Eq)
+  deriving (Show, Eq)
 
 data QueryRound = QR { qrStillNeed :: Int
                      , qrRound :: Int

@@ -22,22 +22,26 @@ type KVStore = HM.HashMap RD.ID T.Text
 type NodeInfos = HM.HashMap RD.ID RD.IPInfo
 
 -- | The Node's state
-data Node = Node { nPort :: RD.Port -- | The port we're running on
-                 , nIP :: RD.IP -- | Our IP
-                 , nNodeID :: RD.ID -- | Our ID
-                 , nTree :: RD.Tree -- | Our current routing tree
-                 , nStore :: KVStore -- | Our current data store
-                 , nFindValueQueries :: Queries -- | Our in-progress FIND_VALUE queries
-                 , nFindNodeQueries :: Queries -- | Our in-progress FIND_NODE queries
-                 , nIncoming :: [MSG.Message] -- | Messages we have just received next IO cycle
-                 , nOutgoing :: [MSG.Message] -- | Messages we are planning to send out next IO cycle
-                 , nPendingStores :: [(RD.ID, T.Text)] -- | Store commands a user has executed on this node
-                 , nPendingFinds :: [RD.ID] -- | Find commands a user has executed on this node
-                 , nLastSeen :: HM.HashMap RD.ID Clock.UTCTime -- | Keeps track of the last time we've seen every node
-                 , nLastSent :: HM.HashMap RD.ID MSG.Message -- | Keeps track of the last message we sent to each node
-                 , nNodeInfos :: NodeInfos -- | Map of IP/port info for every node we've seen
-                 , nPrintBuffer :: [String] -- | Things to print to the screen (like a found value for the user operating this node)
-                 }
+data Node =
+  Node
+  { nPort :: RD.Port -- | The port we're running on
+  , nIP :: RD.IP -- | Our IP
+  , nNodeID :: RD.ID -- | Our ID
+  , nTree :: RD.Tree -- | Our current routing tree
+  , nStore :: KVStore -- | Our current data store
+  , nFindValueQueries :: Queries -- | Our in-progress FIND_VALUE queries
+  , nFindNodeQueries :: Queries -- | Our in-progress FIND_NODE queries
+  , nIncoming :: [MSG.Message] -- | Messages we have just received next IO cycle
+  , nOutgoing :: [MSG.Message] -- | Messages we plan to send out next IO cycle
+  , nPendingStores :: [(RD.ID, T.Text)] -- | Store commands user executed on node
+  , nPendingFinds :: [RD.ID] -- | Find commands a user has executed on this node
+  , nLastSeen :: HM.HashMap RD.ID Clock.UTCTime -- | When we last saw each node
+  , nLastSent :: HM.HashMap RD.ID MSG.Message -- | What we last sent to each node
+  , nNodeInfos :: NodeInfos -- | Map of IP/port info for every node we've seen
+  , nPrintBuffer :: [String] -- | Things ready to print for user
+  }
+
+-- ||| Handle FIND_NODE responses
 
 -- | Delegates QueryMessageResponses to the appropriate query, based on query ID
 routeToQueries :: [(RD.QueryID, Q.QueryMessageResponse)] -- | The QueryID -> QMR pairs
@@ -47,43 +51,57 @@ routeToQueries qmrPairs queries = L.foldl' myInsert queries qmrPairs
   where myInsert accQueries (queryID, qmr) =
           HM.adjust (Q.insertIncoming qmr) queryID accQueries
 
--- | Node-wrapped `routeToQueries`
-delegateIncomingResponses :: Node -> Node
-delegateIncomingResponses n@Node{..}
+-- | Sends incoming FIND_NODE responses to their appropriate queries.
+routeFindNodeRs :: Node -> Node
+routeFindNodeRs n@Node{..}
    = n { nFindValueQueries = routeToQueries translated nFindValueQueries
-    , nFindNodeQueries = routeToQueries translated nFindNodeQueries }
+       , nFindNodeQueries = routeToQueries translated nFindNodeQueries }
   where translated = MSG.bulkToQueryMessageResponse nIncoming
-
--- | Pull out all nodes found in any FOUND_NODE query's responses.
--- Keyed off the target.
-retrieveNodes :: Queries -> HM.HashMap RD.ID [RD.ID]
-retrieveNodes = HM.fromList . M.catMaybes . fmap Q.fetchFoundNodes . HM.elems
 
 -- | Filters for find_node queries that are not finished
 unfinishedFindNodeQueries :: Queries -> Queries
 unfinishedFindNodeQueries = HM.filter (M.isNothing . Q.fetchFoundNodes)
+
+-- | Wrapped `unfinishedFindNodeQueries`
+clearFinishedFindNodes :: Node -> Node
+clearFinishedFindNodes n@Node{..}
+  = n { nFindNodeQueries = unfinishedFindNodeQueries nFindNodeQueries }
+
+handleFindNodeRs :: Node -> Node
+handleFindNodeRs = routeFindNodeRs
+
+-- ||| Store key,value pairs in the network once we have found the
+-- appropriate node locations
+
+-- | Pull out all nodes found in any FOUND_NODE query's responses.
+-- Keyed off the target.
+retrieveFoundNodes :: Queries -> HM.HashMap RD.ID [RD.ID]
+retrieveFoundNodes =
+  HM.fromList . M.catMaybes . fmap Q.fetchFoundNodes . HM.elems
 
 -- | Finds the IDs for the nodes at which we will store
 -- each pending store data (key, value) from the given
 -- target -> node ids hashmap, pulled from FIND_NODE responses
 matchStoresToTargets :: [(RD.ID, T.Text)] -- | Pending stores : (Key,Value)
                     -> HM.HashMap RD.ID [RD.ID] -- | Target -> K closest nodes, from FIND_NODE queries
-                    -> [([RD.ID], T.Text)] -- | [([K closest nodes], value to store)]
+                    -> [(RD.ID, T.Text, [RD.ID])]
 matchStoresToTargets pending targetToNodes
    = M.catMaybes $ L.foldl' locate [] pending
   where locate acc (target, value) =
-          U.apnd acc $ fmap (U.arvs value) $ HM.lookup target targetToNodes
+          U.apnd acc $ fmap ((,,) target value) $ HM.lookup target targetToNodes
 
 -- TODO: Create fully wrapped version of this
 -- | Wrapped `matchStoresToTargets`. Finds targets
-storesToExecute :: Node -> [([RD.ID], T.Text)]
+storesToExecute :: Node -> [(RD.ID, T.Text, [RD.ID])]
 storesToExecute Node{..}
-  = matchStoresToTargets nPendingStores $ retrieveNodes nFindNodeQueries
+  = matchStoresToTargets nPendingStores $ retrieveFoundNodes nFindNodeQueries
 
--- | Wrapped `unfinishedFindNodeQueries`
-clearFinishedFindNodes :: Node -> Node
-clearFinishedFindNodes n@Node{..}
-  = n { nFindNodeQueries = unfinishedFindNodeQueries nFindNodeQueries }
+constructStores :: Node -> T.Text -> Clock.UTCTime -> Node
+constructStores n@Node{..} mID now = n { nOutgoing = nOutgoing ++ storeMs }
+  where ready = storesToExecute n
+        storeMs = MSG.bulkStores nNodeID (nIP, nPort) now mID ready
+
+-- ||| Handle FIND_VALUE responses
 
 removeFindValueQuery :: Node -> RD.QueryID -> Node
 removeFindValueQuery n@Node{..} qID
@@ -110,8 +128,12 @@ bufferFoundValues n@Node{..} = n { nPrintBuffer = nPrintBuffer' }
 
 -- | Handles values we've received in responses, removing them
 -- for future processing
-foundValues :: Node -> Node
-foundValues = pruneFindValueRIncoming . removeFindValueRQueries . bufferFoundValues
+handleFindValueRs :: Node -> Node
+handleFindValueRs =
+  pruneFindValueRIncoming . removeFindValueRQueries . bufferFoundValues
+
+-- ||| Pulling node data from messages into state (such as IP addresses & IDs
+-- ||| from both message sources and results.
 
 -- | Add all sources from all incoming messages into our routing tree,
 -- since we have now seen them
@@ -136,10 +158,11 @@ slurpSourceInfos :: Node -> Node
 slurpSourceInfos n@Node{..}
   = n { nNodeInfos = slurpSourceInfosIntoMap nIncoming nNodeInfos }
 
--- todos: last seen, last sent, findr results into nodeinfos
+-- TODO: last seen, last sent
 
 -- | From any FIND_NODE responses, get the node metadata from the results
-slurpNewNodeInfosIntoMap :: [MSG.Message] -> NodeInfos
+slurpNewNodeInfosIntoMap :: [MSG.Message]
+                         -> NodeInfos
                          -> NodeInfos
 slurpNewNodeInfosIntoMap incoming infos
   = L.foldl' folder infos $ concat $ fmap MSG.getNodeInfos incoming
@@ -166,6 +189,9 @@ slurpNewNodeIDs n@Node{..}
 slurp :: Node -> Node
 slurp = slurpNewNodeIDs . slurpNewNodeInfos . slurpSources . slurpSourceInfos
 
+
+-- ||| Responding to FIND_NODE messages
+
 -- | Response to a FIND_NODE message. Return the `k` closest
 -- nodes we know about to a target, from our routing tree.
 respondFN :: RD.Tree -- | Our routing tree
@@ -174,7 +200,7 @@ respondFN :: RD.Tree -- | Our routing tree
           -> RD.IPInfo -- | Our IP info
           -> Clock.UTCTime -- | Right now
           -> MSG.Message -- | The message we've received
-          -> Maybe MSG.Message -- | A FIND_NODE response, if the message was FIND_NODE
+          -> Maybe MSG.Message -- | A FIND_NODE response, if message was FIND_NODE
 respondFN tree infos myID myInfo now MSG.FindNode{..}
     = Just $ MSG.FindNodeR myID myInfo src results now mRound mID qID
   where sorter a b = compare (RD.nodeDistance target a)

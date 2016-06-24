@@ -16,6 +16,9 @@ tfst (a, b, c) = a
 sndthd :: (a, b, c) -> (b, c)
 sndthd (a, b, c) = (b, c)
 
+tthd :: (a, b, c) -> c
+tthd (a, b, c) = c
+
 get :: [a] -> Int -> Maybe a
 get [] _ = Nothing
 get (x:_) 0 = Just x
