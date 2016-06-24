@@ -41,7 +41,8 @@ data Node =
   , nPrintBuffer :: [String] -- | Things ready to print for user
   }
 
--- ||| Handle FIND_NODE responses
+-- ||| Handle FIND_NODE responses - prepare stores from finished find_nodes
+-- that we want to store values at
 
 -- | Delegates QueryMessageResponses to the appropriate query, based on query ID
 routeToQueries :: [(RD.QueryID, Q.QueryMessageResponse)] -- | The QueryID -> QMR pairs
@@ -67,11 +68,10 @@ clearFinishedFindNodes :: Node -> Node
 clearFinishedFindNodes n@Node{..}
   = n { nFindNodeQueries = unfinishedFindNodeQueries nFindNodeQueries }
 
-handleFindNodeRs :: Node -> Node
-handleFindNodeRs = routeFindNodeRs
-
--- ||| Store key,value pairs in the network once we have found the
--- appropriate node locations
+-- TODO: Show find node responses to user?
+--
+-- | Store key,value pairs in the network once we have found the
+-- appropriate node locations. Is coupled with dealing with find node responses.
 
 -- | Pull out all nodes found in any FOUND_NODE query's responses.
 -- Keyed off the target.
@@ -90,16 +90,19 @@ matchStoresToTargets pending targetToNodes
   where locate acc (target, value) =
           U.apnd acc $ fmap ((,,) target value) $ HM.lookup target targetToNodes
 
--- TODO: Create fully wrapped version of this
 -- | Wrapped `matchStoresToTargets`. Finds targets
 storesToExecute :: Node -> [(RD.ID, T.Text, [RD.ID])]
 storesToExecute Node{..}
   = matchStoresToTargets nPendingStores $ retrieveFoundNodes nFindNodeQueries
 
-constructStores :: Node -> T.Text -> Clock.UTCTime -> Node
-constructStores n@Node{..} mID now = n { nOutgoing = nOutgoing ++ storeMs }
+constructStores :: T.Text -> Clock.UTCTime -> Node -> Node
+constructStores mID now n@Node{..} = n { nOutgoing = nOutgoing ++ storeMs }
   where ready = storesToExecute n
         storeMs = MSG.bulkStores nNodeID (nIP, nPort) now mID ready
+
+handleFindNodeRs :: T.Text -> Clock.UTCTime -> Node -> Node
+handleFindNodeRs mID now =
+ clearFinishedFindNodes . (constructStores mID now) . routeFindNodeRs
 
 -- ||| Handle FIND_VALUE responses
 
